@@ -16,6 +16,8 @@
 */
 
 #include "vsftp_server.h"
+#include "vsftp_commands.h"
+#include "vsftp_filesystem.h"
 
 typedef enum {
     VSFTP_STATE_UNINITIALIZED = 0,
