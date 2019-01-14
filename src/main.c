@@ -19,21 +19,30 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include "vsftp_server.h"
 #include "version.h"
 
 #define DECIMAL_STRING_LEN_MAX          10u
+
+volatile sig_atomic_t quit = 0;
 
 /* UINT32_MAX equivalent string. */
 const char *DecimalStringValueMax = "4294967295";
 
 static VSFTPData_s vsftpData;
 
+static void Terminate(int signum);
 static void ParseDecimal(const char *string, size_t len, uint32_t *number);
 static bool IsDecimalChar(char c);
 static bool IsDecimal(const char *string, size_t len);
 static bool DirectoryExists(const char *path);
 static void PrintHelp(void);
+
+static void Terminate(int signum)
+{
+    quit = 1;
+}
 
 /*!
  * \brief Parse a string that represents a Decimal value and returns its value.
@@ -172,23 +181,34 @@ static void PrintHelp(void)
 int main(int argc, char *argv[])
 {
     int retval = 0;
+    struct sigaction action;
 
     /* Check input arguments. */
     if (argc != 3) {
         /* Missing or too many arguments. */
+        printf("Invalid number of arguments\n\n");
         PrintHelp();
         return -1;
     }
 
     if (IsDecimal(argv[1], strlen(argv[1])) != true) {
         /* Invalid port. */
+        printf("Invalid port \"%s\"\n\n", argv[1]);
         PrintHelp();
         return -1;
     }
 
     if (DirectoryExists(argv[2]) != true) {
+        /* Invalid directory. */
+        printf("Invalid directory \"%s\"\n\n", argv[2]);
+        PrintHelp();
         return -1;
     }
+
+    /* Initialize termination on signal. */
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = Terminate;
+    sigaction(SIGTERM, &action, NULL);
 
     /* Initialize VS-FTP data structure. */
     ParseDecimal(argv[1], strlen(argv[1]), &vsftpData.port);
@@ -197,6 +217,14 @@ int main(int argc, char *argv[])
     /* Initialize the VS-FTP Server. */
     retval = VSFTPServerInitialize(&vsftpData);
     if (retval != 0) {
+        printf("Server initialization failed with exit code %d\n\n", retval);
+        return retval;
+    }
+
+    /* Start the VS-FTP Server. */
+    retval = VSFTPServerStart();
+    if (retval != 0) {
+        printf("Server start failed with exit code %d\n\n", retval);
         return retval;
     }
 
@@ -204,10 +232,19 @@ int main(int argc, char *argv[])
      * This function will return 0 unless unless an exception occurs.
      */
     do {
-        retval = VSFTPServerHandle();
+        retval = VSFTPServerHandler();
+        if (retval != 0) {
+            printf("Server handler failed with exit code %d\n\n", retval);
+            return retval;
+        }
+    } while (quit == 0);
 
-        //TODO: handle signals to quit
-    } while (retval == 0);
+    /* We have been signalled to quit, stop the VS-FTP Server. */
+    retval = VSFTPServerStop();
+    if (retval != 0) {
+        printf("Server stop failed with exit code %d\n\n", retval);
+        return retval;
+    }
 
     return 0;
 }

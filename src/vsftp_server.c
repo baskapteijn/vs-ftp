@@ -17,27 +17,32 @@
 
 #include "vsftp_server.h"
 
+typedef enum {
+    VSFTP_STATE_UNINITIALIZED = 0,
+    VSFTP_STATE_INITIALIZED = 1,
+    VSFTP_STATE_STARTED = 2,
+} VSFTPStates_e;
+
 /*!
- * \brief Handle the next server iteration.
+ * \brief Maintains the server state.
  * \details
- *      - Check for a (newly) received command
+ *      The server state flow is as follows:
  *
- *      And optionally:
+ *      VSFTPServerInitialize() called
+ *        VSFTP_STATE_UNINITIALIZED -> VSFTP_STATE_INITIALIZED
+ *      VSFTPServerStart() called
+ *        VSFTP_STATE_INITIALIZED -> VSFTP_STATE_STARTED
+ *      VSFTPServerStop() called
+ *        VSFTP_STATE_STARTED -> VSFTP_STATE_INITIALIZED
  *
- *      - Handle a received command
- *      - Continue a transmission part
- *
- *      This function shall return swiftly as to allow the user to do tasks in between.
- * \returns 0 in case of successful completion or any other value in case of an error.
+ *      This means that initialization can only be performed once, and after initialization the
+ *      server can be started and stopped as many times as required.
  */
-int VSFTPServerHandle(void)
-{
-    /* TODO: implement. */
-    return -1;
-}
+static VSFTPStates_e state = VSFTP_STATE_UNINITIALIZED;
 
 /*!
  * \brief Initialize the VS-FTP server.
+ * \pre Can only be called when the server state is VSFTP_STATE_UNINITIALIZED.
  * \details
  *      Initializes the Server with data coming in through the vsftpData structure.
  * \param vsftpData
@@ -46,6 +51,66 @@ int VSFTPServerHandle(void)
  */
 int VSFTPServerInitialize(VSFTPData_s *vsftpData)
 {
+    if (state != VSFTP_STATE_UNINITIALIZED) {
+        return -1;
+    }
+
+    /* TODO: implement. */
+    return -1;
+}
+
+/*!
+ * \brief Start the VS-FTP server.
+ * \pre Can only be called when the server state is VSFTP_STATE_INITIALIZED.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+int VSFTPServerStart(void)
+{
+    if (state != VSFTP_STATE_INITIALIZED) {
+        return -1;
+    }
+
+    /* TODO: implement. */
+    return -1;
+}
+
+/*!
+ * \brief Stop the VS-FTP server.
+ * \pre Can only be called when the server state is VSFTP_STATE_STARTED.
+ * \details
+ *      Stop serving and clean-up to restore the initialized state.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+int VSFTPServerStop(void)
+{
+    if (state != VSFTP_STATE_STARTED) {
+        return -1;
+    }
+
+    /* TODO: implement. */
+    return -1;
+}
+
+/*!
+ * \brief Handle the next server iteration.
+ * \pre Can only be called when the server state is VSFTP_STATE_STARTED.
+ * \details
+ *      - Check for a (newly) received command.
+ *
+ *      And optionally:
+ *
+ *      - Handle a received command.
+ *      - Continue a transmission part.
+ *
+ *      This function shall return swiftly as to allow the user to do tasks in between.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+int VSFTPServerHandler(void)
+{
+    if (state != VSFTP_STATE_STARTED) {
+        return -1;
+    }
+
     /* TODO: implement. */
     return -1;
 }

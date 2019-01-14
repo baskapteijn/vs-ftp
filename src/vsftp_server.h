@@ -24,7 +24,9 @@ typedef struct {
     const char *rootPath;
 } VSFTPData_s;
 
-extern int VSFTPServerHandle(void);
 extern int VSFTPServerInitialize(VSFTPData_s *vsftpData);
+extern int VSFTPServerStart(void);
+extern int VSFTPServerStop(void);
+extern int VSFTPServerHandler(void);
 
 #endif /* VSFTP_SERVER_H__ */
