@@ -17,4 +17,6 @@
 #ifndef VSFTP_COMMANDS_H__
 #define VSFTP_COMMANDS_H__
 
+extern int VSFTPCommandsParse(const char *buffer, size_t len);
+
 #endif /* VSFTP_COMMANDS_H__ */

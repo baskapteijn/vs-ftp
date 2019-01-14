@@ -17,4 +17,15 @@
 #ifndef VSFTP_FILESYSTEM_H__
 #define VSFTP_FILESYSTEM_H__
 
+#include <stddef.h>
+
+extern int VSFTPFilesystemListDirPerFile(const char *dir, size_t len, char *buf, size_t size, bool prependDir, DIR **d);
+extern int VSFTPFilesystemIsDir(const char *dir);
+extern int VSFTPFilesystemIsRelativeDir(const char *cwd, const size_t len, const char *dir, const size_t dirLen,
+                                        char *abspath, const size_t size);
+extern int VSFTPFilesystemIsFile(const char *file);
+extern int VSFTPFilesystemIsRelativeFile(const char *cwd, const size_t len, const char *file, const size_t fileLen,
+                                         char *abspath, const size_t size);
+extern int VSFTPFilesystemGetAbsPath(const char *path, const size_t len, char *absPath, const size_t size);
+
 #endif /* VSFTP_FILESYSTEM_H__ */

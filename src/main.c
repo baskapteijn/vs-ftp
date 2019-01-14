@@ -20,23 +20,24 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <time.h>
 #include "vsftp_server.h"
 #include "version.h"
+#include "vsftp_filesystem.h"
 
 #define DECIMAL_STRING_LEN_MAX          10u
 
 volatile sig_atomic_t quit = 0;
 
 /* UINT32_MAX equivalent string. */
-const char *DecimalStringValueMax = "4294967295";
+const char *DecimalStringValueMax = "65365";
 
-static VSFTPData_s vsftpData;
+static VSFTPConfigData_s vsftpConfigData;
 
 static void Terminate(int signum);
-static void ParseDecimal(const char *string, size_t len, uint32_t *number);
+static void ParseDecimal(const char *string, size_t len, uint16_t *number);
 static bool IsDecimalChar(char c);
 static bool IsDecimal(const char *string, size_t len);
-static bool DirectoryExists(const char *path);
 static void PrintHelp(void);
 
 static void Terminate(int signum)
@@ -53,17 +54,17 @@ static void Terminate(int signum)
  * \param[out] number
  *      The number represented by the numeric string.
  */
-static void ParseDecimal(const char *string, size_t len, uint32_t *number)
+static void ParseDecimal(const char *string, size_t len, uint16_t *number)
 {
-    uint64_t val = 0;
-    int64_t i = 0;
-    uint64_t value = 0;
+    uint16_t val = 0;
+    int16_t i = 0;
+    uint16_t value = 0;
 
     *number = 0;
 
     val = 1;
-    for (i = ((int64_t)len - 1); i >= 0; i--) {
-        value = (string[i] - 0x30) * val;
+    for (i = (int16_t)(len - 1); i >= 0; i--) {
+        value = (uint16_t)((string[i] - 0x30) * val);
         *number += value;
         val *= 10;
     }
@@ -135,25 +136,6 @@ static bool IsDecimal(const char *string, size_t len)
     return isDecimal;
 }
 
-/**
- * \brief Function to check whether a directory exists or not.
- * \returns
- *      true if the directory exists, otherwise false.
- */
-static bool DirectoryExists(const char *path)
-{
-    struct stat stats;
-
-    stat(path, &stats);
-
-    /* Check for directory existence */
-    if (S_ISDIR(stats.st_mode)) {
-        return true;
-    }
-
-    return false;
-}
-
 /*!
  * \brief Print the help menu to the console.
  */
@@ -162,7 +144,7 @@ static void PrintHelp(void)
     printf("Version %s\n\n", GetVersionString());
 
     printf("Usage:\n");
-    printf("  vs-ftp <port> <root path>\n");
+    printf("  vs-ftp <server ip> <port> <root path>\n");
 }
 
 /*!
@@ -183,24 +165,28 @@ int main(int argc, char *argv[])
     int retval = 0;
     struct sigaction action;
 
+    //TODO: use external ip address as argument here
+
     /* Check input arguments. */
-    if (argc != 3) {
+    if (argc != 4) {
         /* Missing or too many arguments. */
         printf("Invalid number of arguments\n\n");
         PrintHelp();
         return -1;
     }
 
-    if (IsDecimal(argv[1], strlen(argv[1])) != true) {
+    //TODO: check ip address format etc.
+
+    if (IsDecimal(argv[2], strlen(argv[2])) != true) {
         /* Invalid port. */
-        printf("Invalid port \"%s\"\n\n", argv[1]);
+        printf("Invalid port \"%s\"\n\n", argv[2]);
         PrintHelp();
         return -1;
     }
 
-    if (DirectoryExists(argv[2]) != true) {
+    if (VSFTPFilesystemIsDir(argv[3]) != 0) {
         /* Invalid directory. */
-        printf("Invalid directory \"%s\"\n\n", argv[2]);
+        printf("Invalid directory \"%s\"\n\n", argv[3]);
         PrintHelp();
         return -1;
     }
@@ -211,11 +197,14 @@ int main(int argc, char *argv[])
     sigaction(SIGTERM, &action, NULL);
 
     /* Initialize VS-FTP data structure. */
-    ParseDecimal(argv[1], strlen(argv[1]), &vsftpData.port);
-    vsftpData.rootPath = argv[2];
+    vsftpConfigData.ipAddr = argv[1];
+    vsftpConfigData.ipAddrLen = strlen(vsftpConfigData.ipAddr);
+    ParseDecimal(argv[2], strlen(argv[2]), &vsftpConfigData.port);
+    vsftpConfigData.rootPath = argv[3];
+    vsftpConfigData.rootPathLen = strlen(vsftpConfigData.rootPath);
 
     /* Initialize the VS-FTP Server. */
-    retval = VSFTPServerInitialize(&vsftpData);
+    retval = VSFTPServerInitialize(&vsftpConfigData);
     if (retval != 0) {
         printf("Server initialization failed with exit code %d\n\n", retval);
         return retval;
@@ -235,8 +224,14 @@ int main(int argc, char *argv[])
         retval = VSFTPServerHandler();
         if (retval != 0) {
             printf("Server handler failed with exit code %d\n\n", retval);
+            //TODO: stop server on failure, everywhere
             return retval;
         }
+
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = (10 % 1000) * 1000000; /* 10 msec */
+        nanosleep(&ts, NULL);
     } while (quit == 0);
 
     /* We have been signalled to quit, stop the VS-FTP Server. */
