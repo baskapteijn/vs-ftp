@@ -472,7 +472,7 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
     int retval = -1;
     char ldir[PATH_LEN_MAX];
 
-    if ((dir != NULL) && (len > 0) || (absPath != NULL) || (size > 0)) {
+    if ((dir != NULL) && (len > 0) && (absPath != NULL) && (size > 0)) {
         retval = 0;
     }
 
