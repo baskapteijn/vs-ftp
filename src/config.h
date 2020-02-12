@@ -15,7 +15,8 @@
 
 #define HELP_LEN_MAX        256U
 #define PATH_LEN_MAX        256U
-#define RESPONSE_LEN_MAX    (256U + 32U) /* Must always be max of previous + some more. */
+#define REQUEST_LEN_MAX     (256U + 32U) /* Must always be max of HELP/PATH + some more. */
+#define RESPONSE_LEN_MAX    (256U + 32U) /* Must always be max of HELP/PATH + some more. */
 
 #define FILE_READ_BUF_SIZE  8192U
 

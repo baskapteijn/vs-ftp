@@ -25,7 +25,7 @@
 #include "version.h"
 #include "vsftp_filesystem.h"
 
-#define DECIMAL_STRING_LEN_MAX          10u
+#define DECIMAL_STRING_LEN_MAX          10U
 
 volatile sig_atomic_t quit = 0;
 
@@ -162,10 +162,8 @@ static void PrintHelp(void)
  */
 int main(int argc, char *argv[])
 {
-    int retval = 0;
+    int retval = -1;
     struct sigaction action;
-
-    //TODO: use external ip address as argument here
 
     /* Check input arguments. */
     if (argc != 4) {

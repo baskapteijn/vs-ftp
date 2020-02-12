@@ -19,9 +19,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "vsftp_commands.h"
+#include <stdint.h>
+#include <netinet/in.h>
 #include "vsftp_server.h"
 #include "config.h"
+#include "vsftp_commands.h"
 
 #define DIM(_a)             (sizeof((_a)) / sizeof(*(_a)))
 #define STRLEN(_a)          ((sizeof((_a)) / sizeof(*(_a))) - 1)
@@ -68,14 +70,15 @@ static Command_s commands[] = {
 
 static int CommandHandlerUser(const char *args, size_t len)
 {
+    const char *user = "anonymous";
     int retval = -1;
 
     /* (args != NULL) guaranteed by caller. */
 
-    if (strncmp("anonymous", args, len) == 0) {
-        retval = VSFTPServerSend("230 User logged in, proceed.");
+    if (strncmp(user, args, strlen(user)) == 0) {
+        retval = VSFTPServerSendReply("230 User logged in, proceed.");
     } else {
-        retval = VSFTPServerSend("530 Login incorrect.");
+        retval = VSFTPServerSendReply("530 Login incorrect.");
         (void)VSFTPServerClientDisconnect();
     }
 
@@ -86,7 +89,6 @@ static int CommandHandlerPasv(const char *args, size_t len)
 {
     int retval = -1;
     int pasv_server_sock = -1;
-    char buf[RESPONSE_LEN_MAX];
     char ipAddrBuf[INET_ADDRSTRLEN];
     uint8_t p1 = 0;
     uint8_t p2 = 0;
@@ -124,11 +126,9 @@ static int CommandHandlerPasv(const char *args, size_t len)
 
     if (retval == 0) {
         /* (h1,h2,h3,h4,p1,p2) */
-        (void)snprintf(buf, sizeof(buf), "227 Entering Passive Mode (%s,%d,%d).",
-                       ipAddrBuf, p1, p2);
-        retval = VSFTPServerSend(buf);
+        retval = VSFTPServerSendReply("227 Entering Passive Mode (%s,%d,%d).", ipAddrBuf, p1, p2);
     } else {
-        retval = VSFTPServerSend("425 Cannot open data connection.");
+        retval = VSFTPServerSendReply("425 Cannot open data connection.");
     }
 
     return retval;
@@ -139,10 +139,12 @@ static int CommandHandlerNlst(const char *args, size_t len)
     int retval = -1;
     int pasv_server_sock = -1;
     int pasv_client_sock = -1;
+    int written = 0;
     char buf[PATH_LEN_MAX];
-    char dir[PATH_LEN_MAX];
-    size_t dirLen = 0;
-    DIR *d = NULL;
+    size_t bufLen = 0;
+    char dirAbsPath[PATH_LEN_MAX];
+    size_t dirAbsPathLen = 0;
+    void *d = NULL;
 
     /* (args != NULL) guaranteed by caller, len may be 0. */
 
@@ -152,10 +154,10 @@ static int CommandHandlerNlst(const char *args, size_t len)
     if (retval == 0) {
         if (len == 0) {
             /* Get cwd. */
-            retval = VSFTPServerGetCwd(dir, sizeof(dir));
+            retval = VSFTPServerGetCwd(dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
         } else {
             /* Get requested dir. */
-            retval = VSFTPServerGetDirAbsPath(args, len, dir, sizeof(dir));
+            retval = VSFTPServerGetDirAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
         }
     }
 
@@ -164,20 +166,22 @@ static int CommandHandlerNlst(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSend("150 Here comes the directory listing.");
+        retval = VSFTPServerSendReply("150 Here comes the directory listing.");
     }
 
     if (retval == 0) {
-        dirLen = strnlen(dir, sizeof(dir));
-
         /* List dirs and files of given dir. */
         do {
-            retval = VSFTPServerListDirPerFile(dir, dirLen, buf, sizeof(buf), (len != 0), &d);
+            retval = VSFTPServerListDirPerFile(dirAbsPath, dirAbsPathLen, buf, sizeof(buf), &bufLen, (len != 0), &d);
             if (retval != 0) {
                 break;
             }
 
-            (void)write(pasv_client_sock, buf, strlen(buf));
+            written = write(pasv_client_sock, buf, bufLen);
+            if (written == -1) {
+                retval = -1;
+                break;
+            }
         } while(d != NULL);
     }
 
@@ -185,9 +189,9 @@ static int CommandHandlerNlst(const char *args, size_t len)
     (void)VSFTPServerCloseTransferSocket(pasv_server_sock);
 
     if (retval == 0) {
-        retval = VSFTPServerSend("226 Directory send OK.");
+        retval = VSFTPServerSendReply("226 Directory send OK.");
     } else {
-        retval = VSFTPServerSend("451 Requested action aborted: local error in processing.");
+        retval = VSFTPServerSendReply("451 Requested action aborted: local error in processing.");
     }
 
     return retval;
@@ -195,16 +199,15 @@ static int CommandHandlerNlst(const char *args, size_t len)
 
 static int CommandHandlerPwd(const char *args, size_t len)
 {
-    char buf[RESPONSE_LEN_MAX];
     char cwd[PATH_LEN_MAX];
+    size_t cwdLen = 0;
     int retval = -1;
 
-    retval = VSFTPServerGetCwd(cwd, sizeof(cwd));
+    retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
     if (retval == 0) {
-        (void)snprintf(buf, sizeof(buf), "257 \"%s\"", cwd);
-        retval = VSFTPServerSend(buf);
+        retval = VSFTPServerSendReply("257 \"%s\"", cwd);
     } else {
-        retval = VSFTPServerSend("550 Failed to get directory.");
+        retval = VSFTPServerSendReply("550 Failed to get directory.");
     }
 
     return retval;
@@ -220,9 +223,9 @@ static int CommandHandlerCwd(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSend("250 Directory successfully changed.");
+        retval = VSFTPServerSendReply("250 Directory successfully changed.");
     } else {
-        retval = VSFTPServerSend("550 Failed to change directory.");
+        retval = VSFTPServerSendReply("550 Failed to change directory.");
     }
 
     return retval;
@@ -233,8 +236,8 @@ static int CommandHandlerRetr(const char *args, size_t len)
     int retval = -1;
     int pasv_client_sock = -1;
     int pasv_server_sock = -1;
-    char buf[RESPONSE_LEN_MAX];
     char bufFilePath[PATH_LEN_MAX];
+    size_t bufFilePathLen = 0;
     bool isBinary = false;
     const char *fileNotFound = "550 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
@@ -247,7 +250,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath));
+        retval = VSFTPServerGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
         if (retval != 0) {
             isFileError = true;
         }
@@ -263,24 +266,23 @@ static int CommandHandlerRetr(const char *args, size_t len)
 
     if (retval == 0) {
         if (isBinary == true) {
-            (void)snprintf(buf, sizeof(buf), "150 BINARY mode data connection for %s.", args);
+            retval = VSFTPServerSendReply("150 BINARY mode data connection for %s.", args);
         } else {
-            (void)snprintf(buf, sizeof(buf), "150 ASCII mode data connection for %s.", args);
+            retval = VSFTPServerSendReply("150 ASCII mode data connection for %s.", args);
         }
-        retval = VSFTPServerSend(buf);
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSendfile(pasv_client_sock, bufFilePath, strlen(bufFilePath));
+        retval = VSFTPServerSendfile(pasv_client_sock, bufFilePath, bufFilePathLen);
     }
 
     (void)close(pasv_client_sock);
     (void)VSFTPServerCloseTransferSocket(pasv_server_sock);
 
     if (retval == 0) {
-        retval = VSFTPServerSend("226 Transfer Complete.");
+        retval = VSFTPServerSendReply("226 Transfer Complete.");
     } else {
-        retval = VSFTPServerSend(isFileError == true ? fileNotFound : localError);
+        retval = VSFTPServerSendReply(isFileError == true ? fileNotFound : localError);
     }
 
     return retval;
@@ -291,18 +293,18 @@ static int CommandHandlerType(const char *args, size_t len)
     int retval = -1;
 
     if ((len == 1) && ((args[0] == 'I') || (args[0] == 'i'))) {
-        retval = VSFTPServerSend("200 Switching to Binary mode.");
+        retval = VSFTPServerSendReply("200 Switching to Binary mode.");
         if (retval == 0) {
             retval = VSFTPServerSetTransferMode(true);
         }
     } else if ((len == 1) && ((args[0] == 'A') || (args[0] == 'a'))) {
         /* Type A must be always accepted according to RFC, but we do not support it. */
-        retval = VSFTPServerSend("200 Switching to ASCII mode.");
+        retval = VSFTPServerSendReply("200 Switching to ASCII mode.");
         if (retval == 0) {
             retval = VSFTPServerSetTransferMode(false);
         }
     } else {
-        retval = VSFTPServerSend("504 Command not implemented for that parameter.");
+        retval = VSFTPServerSendReply("504 Command not implemented for that parameter.");
     }
 
     return retval;
@@ -315,18 +317,37 @@ static int CommandHandlerHelp(const char *args, size_t len)
     int retval = -1;
 
     written = snprintf(&buf[written], sizeof(buf) - written, "214-The following commands are recognized.\r\n");
-    for (unsigned long i = 0; i < DIM(commands); i++) {
-        written += snprintf(&buf[written], sizeof(buf) - written, " %s", commands[i].name);
+    if ((written >= 0) && (written < sizeof(buf))) {
+        retval = 0;
     }
-    (void)snprintf(&buf[written], sizeof(buf) - written, "\r\n214 Help OK.");
-    retval = VSFTPServerSend(buf);
+
+    if (retval == 0) {
+        for (unsigned long i = 0; i < DIM(commands); i++) {
+            written += snprintf(&buf[written], sizeof(buf) - written, " %s", commands[i].name);
+            if ((written < 0) || (written >= sizeof(buf))) {
+                retval = -1;
+                break;
+            }
+        }
+    }
+
+    if (retval == 0) {
+        written += snprintf(&buf[written], sizeof(buf) - written, "\r\n214 Help OK.");
+        if ((written < 0) || (written >= sizeof(buf))) {
+            retval = -1;
+        }
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSendReplyOwnBuf(buf, sizeof(buf), written);
+    }
 
     return retval;
 }
 
 static int CommandHandlerQuit(const char *args, size_t len)
 {
-    return VSFTPServerSend("221 Bye.");
+    return VSFTPServerSendReply("221 Bye.");
 }
 
 int VSFTPCommandsParse(const char *buffer, size_t len)
@@ -349,7 +370,7 @@ int VSFTPCommandsParse(const char *buffer, size_t len)
     }
 
     if (commandFound == false) {
-        retval = VSFTPServerSend("502 Command not implemented.");
+        retval = VSFTPServerSendReply("502 Command not implemented.");
     }
 
     return retval;
