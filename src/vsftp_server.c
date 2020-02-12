@@ -481,7 +481,7 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
         if ((dir[0] != '.') && (VSFTPFilesystemIsDir(dir) == 0)) {
             retval = VSFTPFilesystemGetAbsPath(dir, len, ldir, sizeof(ldir));
         } else {
-            retval = VSFTPFilesystemIsRelativeDir(serverData.cwd, serverData.cwdBufSize, dir, len, ldir, sizeof(ldir));
+            retval = VSFTPFilesystemIsRelativeDir(serverData.cwd, strlen(serverData.cwd), dir, len, ldir, sizeof(ldir));
         }
     }
 
@@ -521,7 +521,7 @@ int VSFTPServerSetCwd(const char *dir, const size_t len)
 int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size)
 {
     /* Checks are performed in callee. */
-    return VSFTPFilesystemIsRelativeFile(serverData.cwd, serverData.cwdBufSize, file, len, absFilePath, size);
+    return VSFTPFilesystemIsRelativeFile(serverData.cwd, strlen(serverData.cwd), file, len, absFilePath, size);
 }
 
 int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len)

@@ -74,18 +74,18 @@ int VSFTPFilesystemIsDir(const char *path)
     return S_ISDIR(path_stat.st_mode) == true ? 0 : -1;
 }
 
-int VSFTPFilesystemIsRelativeDir(const char *cwd, const size_t len, const char *path, const size_t dirLen,
+int VSFTPFilesystemIsRelativeDir(const char *cwd, const size_t len, const char *dir, const size_t dirLen,
                                  char *abspath, const size_t size)
 {
     int retval = -1;
     char buf[PATH_LEN_MAX];
 
-    (void)snprintf(buf, sizeof(buf), "%s/%s", cwd, path);
+    (void)snprintf(buf, sizeof(buf), "%s/%s", cwd, dir);
     retval = VSFTPFilesystemIsDir(buf);
 
     if (retval == 0) {
         if (abspath != NULL) {
-            retval = VSFTPFilesystemGetAbsPath(buf, sizeof(buf), abspath, size);
+            retval = VSFTPFilesystemGetAbsPath(buf, strlen(buf), abspath, size);
         }
     }
 
