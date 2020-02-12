@@ -18,15 +18,38 @@
 #define VSFTP_SERVER_H__
 
 #include <stdint.h>
+#include <netinet/in.h>
+#include <dirent.h>
 
 typedef struct {
-    uint32_t port;
+    uint16_t port;
     const char *rootPath;
-} VSFTPData_s;
+    const char *ipAddr;
+    size_t ipAddrLen;
+    size_t rootPathLen;
+} VSFTPConfigData_s;
 
-extern int VSFTPServerInitialize(VSFTPData_s *vsftpData);
+extern int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData);
 extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
+extern int VSFTPServerClientDisconnect(void);
+extern int VSFTPServerCreateTransferSocket(const uint16_t port_num, int *sock);
+extern int VSFTPServerCloseTransferSocket(const int sock);
+extern int VSFTPServerGetTransferSocket(int *sock);
+extern int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock);
+extern int VSFTPServerGetCwd(char *buf, const size_t size);
+extern int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size);
+extern int VSFTPServerSetCwd(const char *dir, const size_t len);
+extern int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size);
+extern int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len);
+extern int VSFTPServerSetTransferMode(const bool binary);
+extern int VSFTPServerGetTransferMode(bool *binary);
+extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, bool prependDir, DIR **d);
+#if 0
+extern int VSFTPServerGetIP4FromSocket(const int sock, char *buf, const size_t size);
+#endif
+extern int VSFTPServerGetServerIP4(char *buf, const size_t size);
+extern int VSFTPServerSend(const char *string);
 
 #endif /* VSFTP_SERVER_H__ */
