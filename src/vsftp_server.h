@@ -17,10 +17,6 @@
 #ifndef VSFTP_SERVER_H__
 #define VSFTP_SERVER_H__
 
-#include <stdint.h>
-#include <netinet/in.h>
-#include <dirent.h>
-
 typedef struct {
     uint16_t port;
     const char *rootPath;
@@ -38,18 +34,19 @@ extern int VSFTPServerCreateTransferSocket(const uint16_t port_num, int *sock);
 extern int VSFTPServerCloseTransferSocket(const int sock);
 extern int VSFTPServerGetTransferSocket(int *sock);
 extern int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock);
-extern int VSFTPServerGetCwd(char *buf, const size_t size);
-extern int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size);
+extern int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len);
+extern int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
+                                    size_t *absPathLen);
 extern int VSFTPServerSetCwd(const char *dir, const size_t len);
-extern int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size);
+extern int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
+                                     size_t *absFilePathLen);
 extern int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len);
 extern int VSFTPServerSetTransferMode(const bool binary);
 extern int VSFTPServerGetTransferMode(bool *binary);
-extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, bool prependDir, DIR **d);
-#if 0
-extern int VSFTPServerGetIP4FromSocket(const int sock, char *buf, const size_t size);
-#endif
+extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, size_t *bufLen,
+                                     bool prependDir, void **cookie);
 extern int VSFTPServerGetServerIP4(char *buf, const size_t size);
-extern int VSFTPServerSend(const char *string);
+extern int VSFTPServerSendReply(const char *__restrict __format, ...);
+extern int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len);
 
 #endif /* VSFTP_SERVER_H__ */

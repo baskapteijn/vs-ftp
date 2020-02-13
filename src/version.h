@@ -20,9 +20,9 @@
 
 #include <stdio.h>
 
-#define VERSION_MAJOR       0u
-#define VERSION_MINOR       1u
-#define VERSION_PATCH       0u
+#define VERSION_MAJOR       0U
+#define VERSION_MINOR       1U
+#define VERSION_PATCH       0U
 
 #define VERSION_STRING_LEN  12 /* mjr.mnr.pat + \0 */
 
