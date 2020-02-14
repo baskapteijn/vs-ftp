@@ -139,7 +139,6 @@ static int CommandHandlerNlst(const char *args, size_t len)
     int retval = -1;
     int pasv_server_sock = -1;
     int pasv_client_sock = -1;
-    int written = 0;
     char buf[PATH_LEN_MAX];
     size_t bufLen = 0;
     char dirAbsPath[PATH_LEN_MAX];
@@ -177,9 +176,8 @@ static int CommandHandlerNlst(const char *args, size_t len)
                 break;
             }
 
-            written = write(pasv_client_sock, buf, bufLen);
-            if (written == -1) {
-                retval = -1;
+            retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+            if (retval != 0) {
                 break;
             }
         } while(d != NULL);
@@ -316,7 +314,8 @@ static int CommandHandlerHelp(const char *args, size_t len)
     int written = 0;
     int retval = -1;
 
-    written = snprintf(&buf[written], sizeof(buf) - written, "214-The following commands are recognized.\r\n");
+    written = snprintf(&buf[written],
+                               sizeof(buf) - written, "214-The following commands are recognized.\r\n");
     if ((written >= 0) && (written < sizeof(buf))) {
         retval = 0;
     }
@@ -339,7 +338,7 @@ static int CommandHandlerHelp(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSendReplyOwnBuf(buf, sizeof(buf), written);
+        retval = VSFTPServerSendReplyOwnBuf(buf, sizeof(buf), (size_t)written);
     }
 
     return retval;
