@@ -131,11 +131,10 @@ int VSFTPServerStart(void)
         serverData.transferSock = -1;
         serverData.serverSock = -1;
         serverData.clientSock = -1;
-        if (VSFTPServerGetDirAbsPath(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen,
-            serverData.cwd, sizeof(serverData.cwd), &serverData.cwdLen) != 0) {
+        serverData.cwdBufSize = sizeof(serverData.cwd);
+        if (VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen) != 0) {
             return -1;
         }
-        serverData.cwdBufSize = sizeof(serverData.cwd);
 
         serverData.transferModeBinary = false;
 
@@ -238,9 +237,7 @@ int VSFTPServerHandler(void)
                 puts("Connection accepted");
 
                 /* Set cwd to rootdir. */
-                retval = VSFTPServerGetDirAbsPath(serverData.vsftpConfigData.rootPath,
-                                                  serverData.vsftpConfigData.rootPathLen,
-                                                  serverData.cwd, sizeof(serverData.cwd), &serverData.cwdLen);
+                retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
                 if (retval == 0) {
                     retval = VSFTPServerSendReply("220 Service ready for new user.");
                     if (retval == 0) {
@@ -480,43 +477,32 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
                              size_t *absPathLen)
 {
     int retval = -1;
-    char lAbsPath[PATH_LEN_MAX];
-    size_t lAbsPathLen = 0;
 
     if ((dir != NULL) && (len > 0) && (absPath != NULL) && (size > 0)) {
         retval = 0;
     }
 
     if (retval == 0) {
-        retval = VSFTPFilesystemGetAbsPath(dir, len, lAbsPath, sizeof(lAbsPath), &lAbsPathLen);
+        retval = VSFTPFilesystemGetAbsPath(dir, len, absPath, size, absPathLen);
     }
 
     if (retval == 0) {
-        retval = VSFTPFilesystemIsDir(lAbsPath, lAbsPathLen);
+        retval = VSFTPFilesystemIsDir(absPath, *absPathLen);
     }
 
     // make sure the new path is not above the root dir
     if (retval == 0) {
-        if (lAbsPathLen < serverData.vsftpConfigData.rootPathLen) {
+        if (*absPathLen < serverData.vsftpConfigData.rootPathLen) {
             retval = -1;
         }
     }
 
     if (retval == 0) {
         for (unsigned long i = 0; i < serverData.vsftpConfigData.rootPathLen; i++) {
-            if (serverData.vsftpConfigData.rootPath[i] != lAbsPath[i]) {
+            if (serverData.vsftpConfigData.rootPath[i] != absPath[i]) {
                 retval = -1;
                 break;
             }
-        }
-    }
-
-    if (retval == 0) {
-        if (size > lAbsPathLen) {
-            (void)strncpy(absPath, lAbsPath, size);
-            *absPathLen = lAbsPathLen;
-        } else {
-            retval = -1;
         }
     }
 
@@ -525,32 +511,37 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
 
 int VSFTPServerSetCwd(const char *dir, const size_t len)
 {
+    int retval = -1;
+    char cwd[PATH_LEN_MAX]; /* Local copy first. */
+    size_t cwdLen = 0;
+
     /* Checks are performed in callee. */
-    return VSFTPServerGetDirAbsPath(dir, len, serverData.cwd, serverData.cwdBufSize, &serverData.cwdLen);
+
+    retval = VSFTPServerGetDirAbsPath(dir, len, cwd, sizeof(cwd), &cwdLen);
+    if (retval == 0) {
+        if (serverData.cwdBufSize > cwdLen) {
+            (void)strncpy(serverData.cwd, cwd, serverData.cwdBufSize);
+            serverData.cwdLen = cwdLen;
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
 }
 
 int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
                               size_t *absFilePathLen)
 {
     int retval = -1;
-    char lAbsPath[PATH_LEN_MAX];
-    size_t lAbsPathLen = 0;
 
     /* Checks are performed in callee. */
 
-    retval = VSFTPFilesystemGetAbsPath(file, len, lAbsPath, sizeof(lAbsPath), &lAbsPathLen);
+    retval = VSFTPFilesystemGetAbsPath(file, len, absFilePath, size, absFilePathLen);
     if (retval == 0) {
-        retval = VSFTPFilesystemIsFile(lAbsPath, lAbsPathLen);
+        retval = VSFTPFilesystemIsFile(absFilePath, *absFilePathLen);
     }
 
-    if (retval == 0) {
-        if (size > lAbsPathLen) {
-            (void)strncpy(absFilePath, lAbsPath, size);
-            *absFilePathLen = lAbsPathLen;
-        } else {
-            retval = -1;
-        }
-    }
     return retval;
 }
 
