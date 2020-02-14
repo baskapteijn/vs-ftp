@@ -50,5 +50,8 @@ extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, siz
 extern int VSFTPServerGetServerIP4(char *buf, const size_t size);
 extern int VSFTPServerSendReply(const char *__restrict __format, ...);
 extern int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len);
+extern int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t size, const size_t len);
+extern int VSFTPServerSendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send);
+extern int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *received);
 
 #endif /* VSFTP_SERVER_H__ */

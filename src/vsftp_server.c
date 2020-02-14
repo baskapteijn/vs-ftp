@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #include <errno.h>
 #include "vsftp_server.h"
 #include "vsftp_commands.h"
@@ -79,7 +80,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
  */
 static VSFTPStates_e state = VSFTP_STATE_UNINITIALIZED;
 
-static inline void StripCRAndNewline(char *buf, ssize_t *len);
+static inline void StripCRAndNewline(char *buf, size_t *len);
 
 /*!
  * \brief Initialize the VS-FTP server.
@@ -188,7 +189,7 @@ int VSFTPServerStop(void)
     return retval;
 }
 
-static inline void StripCRAndNewline(char *buf, ssize_t *len)
+static inline void StripCRAndNewline(char *buf, size_t *len)
 {
     for (unsigned long i = 0; i < *len; i++) {
         if ((buf[i] == '\r') ||
@@ -255,14 +256,14 @@ int VSFTPServerHandler(void)
             }
         } else { /* serverData.isConnected == true */
             /* Polling read commands from client. */
-            ssize_t bytes_read = 0;
+            size_t bytes_read = 0;
             char buffer[REQUEST_LEN_MAX];
 
-            bytes_read = read(serverData.clientSock, buffer, sizeof(buffer));
-            //TODO: handle -1 bytes_read
+            retval = VSFTPServerReceive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
+
             /* Terminate the buffer. */
             buffer[bytes_read] = '\0';
-            if (bytes_read > 0) {
+            if ((retval == 0) && (bytes_read > 0)) {
                 StripCRAndNewline(buffer, &bytes_read);
                 printf("Received command from client: %s\n", buffer);
 
@@ -270,7 +271,7 @@ int VSFTPServerHandler(void)
 
                 /* Handle the command, we currently ignore errors. */
                 (void)VSFTPCommandsParse(buffer, bytes_read);
-            } else if (bytes_read == 0) {
+            } else if ((retval == 0) && (bytes_read == 0)) {
                 /* Client disconnected. */
                 puts("Client disconnected");
                 serverData.isConnected = false;
@@ -284,7 +285,6 @@ int VSFTPServerHandler(void)
 
                 serverData.transferSock = -1;
                 serverData.clientSock = -1;
-
             } else {
                 if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
                     /* No incoming data. */
@@ -465,7 +465,7 @@ int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
     if (retval == 0) {
         written = snprintf(buf, size, serverData.cwd, serverData.cwdLen);
         if ((written >= 0) && (written < size)) {
-            *len = written;
+            *len = (size_t)written;
         } else {
             retval = -1;
         }
@@ -551,7 +551,7 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
     char fileBuf[FILE_READ_BUF_SIZE];
     size_t toRead = 0;
     ssize_t numRead = 0;
-    ssize_t numSent = 0;
+    size_t numSent = 0;
     size_t count = 0;
     int fd = -1;
     int retval = -1;
@@ -570,9 +570,8 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
                 break;                      /* EOF */
             }
 
-            numSent = write(sock, fileBuf, (size_t)numRead);
-            if (numSent == -1) {
-                retval = -1;
+            retval = VSFTPServerSendBinaryOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
+            if (retval == -1) {
                 break;
             }
             if (numSent == 0) {               /* Should never happen */
@@ -629,13 +628,13 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size)
 int VSFTPServerSendReply(const char *__restrict __format, ...)
 {
     char buf[RESPONSE_LEN_MAX];
-    size_t written = 0;
+    int written = 0;
     int retval = -1;
     va_list ap;
 
     /* Write reply to buffer. */
     va_start(ap, __format);
-    written = (size_t)vsnprintf(buf, sizeof(buf), __format, ap);
+    written = vsnprintf(buf, sizeof(buf), __format, ap);
     va_end(ap);
     if ((written >= 0) && (written < sizeof(buf))) {
         retval = 0;
@@ -643,14 +642,14 @@ int VSFTPServerSendReply(const char *__restrict __format, ...)
 
     /* Append \r\n. */
     if (retval == 0) {
-        written += (size_t)snprintf(&buf[written], sizeof(buf) - written, "\r\n");
+        written += snprintf(&buf[written], sizeof(buf) - written, "\r\n");
         if ((written < 0) || (written >= sizeof(buf))) {
             retval = -1;
         }
     }
 
     if (retval == 0) {
-        if (write(serverData.clientSock, buf, written) == -1) {
+        if (write(serverData.clientSock, buf, (size_t)written) == -1) {
             retval = -1;
         }
     }
@@ -660,11 +659,11 @@ int VSFTPServerSendReply(const char *__restrict __format, ...)
 
 int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len)
 {
-    size_t written = 0;
+    int written = 0;
     int retval = -1;
 
     /* Append \r\n. */
-    written = (size_t)snprintf(&buf[len], size - len, "\r\n");
+    written = snprintf(&buf[len], size - len, "\r\n");
     if ((written >= 0) && (written < size)) {
         retval = 0;
     }
@@ -673,6 +672,54 @@ int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len)
         if (write(serverData.clientSock, buf, len + written) == -1) {
             retval = -1;
         }
+    }
+
+    return retval;
+}
+
+int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t size, const size_t len)
+{
+    int written = 0;
+    int retval = -1;
+
+    /* Append \r\n. */
+    written = snprintf(&buf[len], size - len, "\r\n");
+    if ((written >= 0) && (written < size)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        if (write(sock, buf, len + written) == -1) {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerSendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send)
+{
+    ssize_t lsend = 0;
+    int retval = -1;
+
+    lsend = write(sock, buf, size);
+    if (lsend != -1) {
+        *send = lsend;
+        retval = 0;
+    }
+
+    return retval;
+}
+
+int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *received)
+{
+    ssize_t bytesRead = 0;
+    int retval = -1;
+
+    bytesRead = read(sock, buf, size);
+    if (bytesRead != -1) {
+        *received = (size_t)bytesRead;
+        retval = 0;
     }
 
     return retval;
