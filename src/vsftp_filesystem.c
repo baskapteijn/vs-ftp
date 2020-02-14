@@ -46,7 +46,7 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     return retval;
 }
 
-int VSFTPFilesystemListDirPerFile(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
+int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
                                   bool prependDir, void **cookie)
 {
     struct dirent *ldir = NULL;
@@ -256,4 +256,3 @@ int VSFTPFilesystemCloseFile(const int fd)
 {
     return close(fd);
 }
-
