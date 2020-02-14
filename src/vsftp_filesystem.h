@@ -17,17 +17,13 @@
 #ifndef VSFTP_FILESYSTEM_H__
 #define VSFTP_FILESYSTEM_H__
 
-extern int VSFTPFilesystemListDirPerFile(const char *path, size_t len, char *buf, size_t size, size_t *bufLen,
+extern int VSFTPFilesystemListDirPerFile(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
                                          bool prependDir, void **cookie);
-extern int VSFTPFilesystemIsDir(const char *dir);
-extern int VSFTPFilesystemIsRelativeDir(const char *cwd, const size_t len, const char *dir, const size_t dirLen,
-                                        char *abspath, const size_t size, size_t *absPathLen);
+extern int VSFTPFilesystemIsDir(const char *path, const size_t pathLen);
 extern int VSFTPFilesystemIsFile(const char *file, const size_t len);
-extern int VSFTPFilesystemIsRelativeFile(const char *cwd, const size_t len, const char *file, const size_t fileLen,
-                                         char *abspath, const size_t size, size_t *absPathLen);
-extern int VSFTPFilesystemGetAbsPath(const char *path, const size_t len, char *absPath, const size_t size,
+extern int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen, char *absPath, const size_t size,
                                      size_t *absPathLen);
-extern int VSFTPFilesystemOpenFile(const char *absPathToFile, const size_t len, int *fd, size_t *size);
+extern int VSFTPFilesystemOpenFile(const char *absPath, const size_t absPathLen, int *fd, size_t *size);
 extern int VSFTPFilesystemCloseFile(const int fd);
 
 #endif /* VSFTP_FILESYSTEM_H__ */

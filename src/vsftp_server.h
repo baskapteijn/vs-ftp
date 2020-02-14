@@ -17,6 +17,8 @@
 #ifndef VSFTP_SERVER_H__
 #define VSFTP_SERVER_H__
 
+#include <stdint.h>
+
 typedef struct {
     uint16_t port;
     const char *rootPath;

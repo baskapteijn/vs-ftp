@@ -460,7 +460,8 @@ int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
     int retval = -1;
     int written = 0;
 
-    if (serverData.cwdLen < size) {
+    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
+    if ((serverData.cwdLen > 0) && (serverData.cwdLen < size)) {
         retval = 0;
     }
     if (retval == 0) {
@@ -487,13 +488,11 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
     }
 
     if (retval == 0) {
-        /* check if it is an absolute dir */
-        if ((dir[0] != '.') && (VSFTPFilesystemIsDir(dir) == 0)) {
-            retval = VSFTPFilesystemGetAbsPath(dir, len, lAbsPath, sizeof(lAbsPath), &lAbsPathLen);
-        } else {
-            retval = VSFTPFilesystemIsRelativeDir(serverData.cwd, serverData.cwdLen, dir, len, lAbsPath,
-                                                  sizeof(lAbsPath), &lAbsPathLen);
-        }
+        retval = VSFTPFilesystemGetAbsPath(dir, len, lAbsPath, sizeof(lAbsPath), &lAbsPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(lAbsPath, lAbsPathLen);
     }
 
     // make sure the new path is not above the root dir
@@ -533,9 +532,26 @@ int VSFTPServerSetCwd(const char *dir, const size_t len)
 int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
                               size_t *absFilePathLen)
 {
+    int retval = -1;
+    char lAbsPath[PATH_LEN_MAX];
+    size_t lAbsPathLen = 0;
+
     /* Checks are performed in callee. */
-    return VSFTPFilesystemIsRelativeFile(serverData.cwd, serverData.cwdLen, file, len, absFilePath, size,
-                                         absFilePathLen);
+
+    retval = VSFTPFilesystemGetAbsPath(file, len, lAbsPath, sizeof(lAbsPath), &lAbsPathLen);
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsFile(lAbsPath, lAbsPathLen);
+    }
+
+    if (retval == 0) {
+        if (size > lAbsPathLen) {
+            (void)strncpy(absFilePath, lAbsPath, size);
+            *absFilePathLen = lAbsPathLen;
+        } else {
+            retval = -1;
+        }
+    }
+    return retval;
 }
 
 int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len)

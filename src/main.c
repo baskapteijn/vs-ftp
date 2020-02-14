@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (VSFTPFilesystemIsDir(argv[3]) != 0) {
+    if (VSFTPFilesystemIsDir(argv[3], strlen(argv[3])) != 0) {
         /* Invalid directory. */
         printf("Invalid directory \"%s\"\n\n", argv[3]);
         PrintHelp();
