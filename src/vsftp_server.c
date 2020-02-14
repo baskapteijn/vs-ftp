@@ -16,6 +16,7 @@
 */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -610,7 +611,7 @@ int VSFTPServerGetTransferMode(bool *binary)
 int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, size_t *bufLen,
                               bool prependDir, void **cookie)
 {
-    return VSFTPFilesystemListDirPerFile(dir, len, buf, size, bufLen, prependDir, cookie);
+    return VSFTPFilesystemListDirPerLine(dir, len, buf, size, bufLen, prependDir, cookie);
 }
 
 int VSFTPServerGetServerIP4(char *buf, const size_t size)
