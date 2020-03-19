@@ -28,8 +28,8 @@
 #include "vsftp_server.h"
 #include "vsftp_filesystem.h"
 
-static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
-                            char *concatPath, const size_t size, size_t *concatPathLen);
+static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
+                            char *concatPath, size_t size, size_t *concatPathLen);
 
 static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
                             char *concatPath, const size_t size, size_t *concatPathLen)

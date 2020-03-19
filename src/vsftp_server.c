@@ -25,18 +25,11 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <time.h>
 #include <errno.h>
 #include "vsftp_server.h"
 #include "vsftp_commands.h"
 #include "vsftp_filesystem.h"
 #include "config.h"
-
-typedef enum {
-    VSFTP_STATE_UNINITIALIZED = 0,
-    VSFTP_STATE_INITIALIZED = 1,
-    VSFTP_STATE_STARTED = 2,
-} VSFTPStates_e;
 
 typedef struct {
     /*!
@@ -57,34 +50,19 @@ typedef struct {
     size_t cwdLen;
 
     bool isConnected;
+    bool isServerSocketCreated;
 } vsftpServerData_s;
 
 static vsftpServerData_s serverData;
 
 static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
 
-/*!
- * \brief Maintains the server state.
- * \details
- *      The server state flow is as follows:
- *
- *      VSFTPServerInitialize() called
- *        VSFTP_STATE_UNINITIALIZED -> VSFTP_STATE_INITIALIZED
- *      VSFTPServerStart() called
- *        VSFTP_STATE_INITIALIZED -> VSFTP_STATE_STARTED
- *      VSFTPServerStop() called
- *        VSFTP_STATE_STARTED -> VSFTP_STATE_INITIALIZED
- *
- *      This means that initialization can only be performed once, and after initialization the
- *      server can be started and stopped as many times as required.
- */
-static VSFTPStates_e state = VSFTP_STATE_UNINITIALIZED;
-
 static inline void StripCRAndNewline(char *buf, size_t *len);
+static int WaitForIncomingConnection(void);
+static int HandleConnection(void);
 
 /*!
  * \brief Initialize the VS-FTP server.
- * \pre Can only be called when the server state is VSFTP_STATE_UNINITIALIZED.
  * \details
  *      Initializes the Server with configuration data.
  * \param vsftpConfigData
@@ -93,51 +71,31 @@ static inline void StripCRAndNewline(char *buf, size_t *len);
  */
 int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 {
-    int retval = -1;
-
-    /* Check the server state. */
-    if (state == VSFTP_STATE_UNINITIALIZED) {
-        retval = 0;
-    }
-
     //TODO: we might want to check the server configuration data for validity here
 
-    if (retval == 0) {
-        /* Copy server configuration data. */
-        (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
-                     sizeof(serverData.vsftpConfigData));
+    /* Copy server configuration data. */
+    (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
+                 sizeof(serverData.vsftpConfigData));
 
-        /* Set the new server state. */
-        state = VSFTP_STATE_INITIALIZED;
-    }
-
-    return retval;
+    return 0;
 }
 
 /*!
  * \brief Start the VS-FTP server.
- * \pre Can only be called when the server state is VSFTP_STATE_INITIALIZED.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
 int VSFTPServerStart(void)
 {
     int retval = -1;
 
-    /* Check the server state. */
-    if (state == VSFTP_STATE_INITIALIZED) {
-        retval = 0;
-    }
+    /* Initialize structure data to invalid values. */
+    serverData.transferSock = -1;
+    serverData.serverSock = -1;
+    serverData.clientSock = -1;
+    serverData.cwdBufSize = sizeof(serverData.cwd);
+    retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
 
     if (retval == 0) {
-        /* Initialize structure data to invalid values. */
-        serverData.transferSock = -1;
-        serverData.serverSock = -1;
-        serverData.clientSock = -1;
-        serverData.cwdBufSize = sizeof(serverData.cwd);
-        if (VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen) != 0) {
-            return -1;
-        }
-
         serverData.transferModeBinary = false;
 
         /* Prepare sockaddr_in structure. */
@@ -147,13 +105,12 @@ int VSFTPServerStart(void)
 
         /* Create the socket. */
         retval = VSFTPServerCreatePassiveSocket((in_port_t)serverData.vsftpConfigData.port,
-                                             &serverData.serverSock,
-                                             &serverData.server);
+                                                &serverData.serverSock,
+                                                &serverData.server);
     }
 
     if (retval == 0) {
-        /* Set the new server state. */
-        state = VSFTP_STATE_STARTED;
+        serverData.isServerSocketCreated = true;
     }
 
     return retval;
@@ -161,32 +118,29 @@ int VSFTPServerStart(void)
 
 /*!
  * \brief Stop the VS-FTP server.
- * \pre Can only be called when the server state is VSFTP_STATE_STARTED.
  * \details
  *      Stop serving and clean-up to restore the initialized state.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
 int VSFTPServerStop(void)
 {
-    int retval = -1;
+    /* We don't know in what state we currently are, just orderly shutdown and close everything. */
+    (void)shutdown(serverData.transferSock, SHUT_RDWR);
+    (void)close(serverData.transferSock);
+    serverData.transferSock = -1;
 
-    if (state == VSFTP_STATE_STARTED) {
-        retval = 0;
-    }
+    (void)shutdown(serverData.clientSock, SHUT_RDWR);
+    (void)close(serverData.clientSock);
+    serverData.clientSock = -1;
 
-    if (retval == 0) {
-        /* We don't know in what state we currently are, just orderly shutdown and close everything. */
-        (void)shutdown(serverData.transferSock, SHUT_RDWR);
-        (void)close(serverData.transferSock);
+    (void)shutdown(serverData.serverSock, SHUT_RDWR);
+    (void)close(serverData.serverSock);
+    serverData.serverSock = -1;
 
-        (void)shutdown(serverData.clientSock, SHUT_RDWR);
-        (void)close(serverData.clientSock);
+    serverData.isServerSocketCreated = false;
+    serverData.isConnected = false;
 
-        (void)shutdown(serverData.serverSock, SHUT_RDWR);
-        (void)close(serverData.serverSock);
-    }
-
-    return retval;
+    return 0;
 }
 
 static inline void StripCRAndNewline(char *buf, size_t *len)
@@ -201,9 +155,78 @@ static inline void StripCRAndNewline(char *buf, size_t *len)
     }
 }
 
+static int WaitForIncomingConnection(void)
+{
+    int c = 0;
+    int retval = 0;
+
+    /* Poll for an incoming connection and accept it when there is 1. */
+    c = sizeof(struct sockaddr_in);
+    serverData.clientSock = accept(serverData.serverSock,
+                                   (struct sockaddr *)&serverData.client,
+                                   (socklen_t *)&c);
+    if (serverData.clientSock >= 0) {
+        puts("Connection accepted");
+
+        /* Set cwd to rootdir. */
+        retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+        if (retval == 0) {
+            retval = VSFTPServerSendReply("220 Service ready for new user.");
+            if (retval == 0) {
+                serverData.isConnected = true;
+            }
+        }
+    } else {
+        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
+            /* No incoming connection. */
+        } else {
+            printf("Socket listen failed with errno %d\n", errno);
+            (void)VSFTPServerStop();
+        }
+    }
+
+    return retval;
+}
+
+static int HandleConnection(void)
+{
+    int retval = -1;
+    /* Polling read commands from client. */
+    size_t bytes_read = 0;
+    char buffer[REQUEST_LEN_MAX];
+
+    retval = VSFTPServerReceive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
+
+    /* Terminate the buffer. */
+    buffer[bytes_read] = '\0';
+    if ((retval == 0) && (bytes_read > 0)) {
+        StripCRAndNewline(buffer, &bytes_read);
+        printf("Received command from client: %s\n", buffer);
+
+        /* Handle the command, we currently ignore errors. */
+        retval = VSFTPCommandsParse(buffer, bytes_read);
+        if (retval != 0) {
+            printf("Command failed with code %d\n\n", retval);
+            retval = 0; /* We do not break on a command parse failure, the printout is enough. */
+        }
+    } else if ((retval == 0) && (bytes_read == 0)) {
+        /* Clean-up connection on disconnect, including server socket. */
+        puts("Client disconnected");
+        (void)VSFTPServerStop();
+    } else {
+        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
+            /* No incoming data. */
+        } else {
+            puts("Socket read failed");
+            (void)VSFTPServerStop();
+        }
+    }
+
+    return retval;
+}
+
 /*!
  * \brief Handle the next server iteration.
- * \pre Can only be called when the server state is VSFTP_STATE_STARTED.
  * \details
  *      When not connected
  *      - Check for a connection and connect when a request is received
@@ -222,81 +245,17 @@ static inline void StripCRAndNewline(char *buf, size_t *len)
 int VSFTPServerHandler(void)
 {
     int retval = -1;
-    int c;
 
-    if (state == VSFTP_STATE_STARTED) {
-        retval = 0;
-    }
-
-    if (retval == 0) {
+    if (serverData.isServerSocketCreated == false) {
+        /* Create server socket. */
+        retval = VSFTPServerStart();
+    } else { /* serverData.isServerSocketCreated == true. */
+        /* Wait for connection and/or handle connection. */
         if (serverData.isConnected == false) {
             /* Poll for an incoming connection and accept it when there is 1. */
-            c = sizeof(struct sockaddr_in);
-            serverData.clientSock = accept(serverData.serverSock,
-                                            (struct sockaddr *)&serverData.client,
-                                            (socklen_t *)&c);
-            if (serverData.clientSock >= 0) {
-                puts("Connection accepted");
-
-                /* Set cwd to rootdir. */
-                retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
-                if (retval == 0) {
-                    retval = VSFTPServerSendReply("220 Service ready for new user.");
-                    if (retval == 0) {
-                        serverData.isConnected = true;
-                    }
-                }
-            } else {
-                if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
-                    /* No incoming connection. */
-                } else {
-                    puts("Socket listen failed");
-                    retval = -1;
-                }
-            }
+            retval = WaitForIncomingConnection();
         } else { /* serverData.isConnected == true */
-            /* Polling read commands from client. */
-            size_t bytes_read = 0;
-            char buffer[REQUEST_LEN_MAX];
-
-            retval = VSFTPServerReceive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
-
-            /* Terminate the buffer. */
-            buffer[bytes_read] = '\0';
-            if ((retval == 0) && (bytes_read > 0)) {
-                StripCRAndNewline(buffer, &bytes_read);
-                printf("Received command from client: %s\n", buffer);
-
-                //TODO: handle returned error command parser (disconnect client?)
-
-                /* Handle the command, we currently ignore errors. */
-                (void)VSFTPCommandsParse(buffer, bytes_read);
-            } else if ((retval == 0) && (bytes_read == 0)) {
-                /* Client disconnected. */
-                puts("Client disconnected");
-                serverData.isConnected = false;
-
-                /* close sockets except server socket */
-                (void)shutdown(serverData.transferSock, SHUT_RDWR);
-                (void)close(serverData.transferSock);
-
-                (void)shutdown(serverData.clientSock, SHUT_RDWR);
-                (void)close(serverData.clientSock);
-
-                serverData.transferSock = -1;
-                serverData.clientSock = -1;
-            } else {
-                if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
-                    /* No incoming data. */
-                } else {
-                    puts("Socket read failed");
-                    retval = -1;
-                    serverData.isConnected = false;
-                }
-            }
-
-            // TODO: can we handle commands during data transfer, other than ABORT?
-            // TODO: continue data transfer here if there is 1 going
+            retval = HandleConnection();
         }
     }
 
@@ -305,21 +264,7 @@ int VSFTPServerHandler(void)
 
 int VSFTPServerClientDisconnect(void)
 {
-    /* Client disconnected. */
-    puts("Client disconnected");
-    serverData.isConnected = false;
-
-    /* close sockets except server socket */
-    (void)shutdown(serverData.transferSock, SHUT_RDWR);
-    (void)close(serverData.transferSock);
-
-    (void)shutdown(serverData.clientSock, SHUT_RDWR);
-    (void)close(serverData.clientSock);
-
-    serverData.transferSock = -1;
-    serverData.clientSock = -1;
-
-    return 0;
+    return VSFTPServerStop();
 }
 
 int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
@@ -491,7 +436,7 @@ int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, c
         retval = VSFTPFilesystemIsDir(absPath, *absPathLen);
     }
 
-    // make sure the new path is not above the root dir
+    /* Make sure the new path is not above the root dir. */
     if (retval == 0) {
         if (*absPathLen < serverData.vsftpConfigData.rootPathLen) {
             retval = -1;
@@ -557,7 +502,6 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
     int retval = -1;
 
     retval = VSFTPFilesystemOpenFile(pathTofile, len, &fd, &count);
-
     if (retval == 0) {
         while (count > 0) {
             toRead = count < sizeof(fileBuf) ? count : sizeof(fileBuf);
