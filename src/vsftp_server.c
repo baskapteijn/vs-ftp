@@ -71,8 +71,6 @@ static int HandleConnection(void);
  */
 int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 {
-    //TODO: we might want to check the server configuration data for validity here
-
     /* Copy server configuration data. */
     (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
                  sizeof(serverData.vsftpConfigData));
