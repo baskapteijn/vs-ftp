@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.2.3)
 project(vs-ftp C)
 
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
-
+#set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
+#set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+set(CMAKE_BUILD_TYPE Debug)
 set(SRC_DIR src)
 include_directories(${SRC_DIR})
 

@@ -32,26 +32,26 @@ extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
 extern int VSFTPServerClientDisconnect(void);
-extern int VSFTPServerCreateTransferSocket(const uint16_t port_num, int *sock);
-extern int VSFTPServerCloseTransferSocket(const int sock);
+extern int VSFTPServerCreateTransferSocket(uint16_t port_num, int *sock);
+extern int VSFTPServerCloseTransferSocket(int sock);
 extern int VSFTPServerGetTransferSocket(int *sock);
-extern int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock);
-extern int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len);
-extern int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
+extern int VSFTPServerAcceptTransferConnection(int sock, int *con_sock);
+extern int VSFTPServerGetCwd(char *buf, size_t size, size_t *len);
+extern int VSFTPServerGetDirAbsPath(const char *dir, size_t len, char *absPath, size_t size,
                                     size_t *absPathLen);
-extern int VSFTPServerSetCwd(const char *dir, const size_t len);
-extern int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
+extern int VSFTPServerSetCwd(const char *dir, size_t len);
+extern int VSFTPServerGetFileAbsPath(const char *file, size_t len, char *absFilePath, size_t size,
                                      size_t *absFilePathLen);
-extern int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len);
-extern int VSFTPServerSetTransferMode(const bool binary);
+extern int VSFTPServerSendfile(int sock, const char *pathTofile, size_t len);
+extern int VSFTPServerSetTransferMode(bool binary);
 extern int VSFTPServerGetTransferMode(bool *binary);
 extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, size_t *bufLen,
                                      bool prependDir, void **cookie);
-extern int VSFTPServerGetServerIP4(char *buf, const size_t size);
+extern int VSFTPServerGetServerIP4(char *buf, size_t size);
 extern int VSFTPServerSendReply(const char *__restrict __format, ...);
-extern int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len);
-extern int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t size, const size_t len);
-extern int VSFTPServerSendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send);
-extern int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *received);
+extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);
+extern int VSFTPServerSendReplyOwnBufOwnSock(int sock, char *buf, size_t size, size_t len);
+extern int VSFTPServerSendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
+extern int VSFTPServerReceive(int sock, char *buf, size_t size, size_t *received);
 
 #endif /* VSFTP_SERVER_H__ */

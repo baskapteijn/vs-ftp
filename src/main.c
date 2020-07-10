@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <time.h>
+#include <arpa/inet.h>
 #include "vsftp_server.h"
 #include "version.h"
 #include "vsftp_filesystem.h"
@@ -147,6 +148,13 @@ static void PrintHelp(void)
     printf("  vs-ftp <server ip> <port> <root path>\n");
 }
 
+static bool IsValidIPAddress(char *ipAddress)
+{
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
+    return result != 0;
+}
+
 /*!
  * \brief This is the program entry.
  * \details
@@ -173,7 +181,11 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    //TODO: check ip address format etc.
+    if (IsValidIPAddress(argv[1]) == false) {
+        printf("Invalid IP address \"%s\"\n", argv[1]);
+        printf("Note that hostnames are not supported\n\n");
+        return -1;
+    }
 
     if (IsDecimal(argv[2], strlen(argv[2])) != true) {
         /* Invalid port. */
@@ -208,22 +220,14 @@ int main(int argc, char *argv[])
         return retval;
     }
 
-    /* Start the VS-FTP Server. */
-    retval = VSFTPServerStart();
-    if (retval != 0) {
-        printf("Server start failed with exit code %d\n\n", retval);
-        return retval;
-    }
-
     /* Start handling the VS-FTP Server.
-     * This function will return 0 unless unless an exception occurs.
+     * This function will return 0 unless unless an unrecoverable exception occurs.
      */
     do {
         retval = VSFTPServerHandler();
         if (retval != 0) {
             printf("Server handler failed with exit code %d\n\n", retval);
-            //TODO: stop server on failure, everywhere
-            return retval;
+            break;
         }
 
         struct timespec ts;
@@ -233,11 +237,14 @@ int main(int argc, char *argv[])
     } while (quit == 0);
 
     /* We have been signalled to quit, stop the VS-FTP Server. */
-    retval = VSFTPServerStop();
-    if (retval != 0) {
-        printf("Server stop failed with exit code %d\n\n", retval);
-        return retval;
+    if (retval == 0) {
+        retval = VSFTPServerStop();
+        if (retval != 0) {
+            printf("Server stop failed with exit code %d\n\n", retval);
+        }
+    } else {
+        (void)VSFTPServerStop(); /* Do not overwrite the previous error code. */
     }
 
-    return 0;
+    return retval;
 }
