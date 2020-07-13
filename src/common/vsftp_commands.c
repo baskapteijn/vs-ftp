@@ -71,11 +71,12 @@ static Command_s commands[] = {
 static int CommandHandlerUser(const char *args, size_t len)
 {
     const char *user = "anonymous";
+    size_t lLen = 0;
     int retval = -1;
 
     /* (args != NULL) guaranteed by caller. */
-
-    if (strncmp(user, args, strlen(user)) == 0) {
+    lLen = strlen(user);
+    if ((len == lLen) && (strncmp(user, args, lLen) == 0)) {
         retval = VSFTPServerSendReply("230 User logged in, proceed.");
     } else {
         retval = VSFTPServerSendReply("530 Login incorrect.");
@@ -93,6 +94,9 @@ static int CommandHandlerPasv(const char *args, size_t len)
     uint8_t p1 = 0;
     uint8_t p2 = 0;
     uint16_t portNumber = PASV_PORT_NUMBER;
+
+    (void)args;
+    (void)len;
 
     /* Close a socket if it is still open (could be happening with unsupported reception of list command). */
     retval = VSFTPServerGetTransferSocket(&pasv_server_sock);
@@ -200,6 +204,9 @@ static int CommandHandlerPwd(const char *args, size_t len)
     char cwd[PATH_LEN_MAX];
     size_t cwdLen = 0;
     int retval = -1;
+
+    (void)args;
+    (void)len;
 
     retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
     if (retval == 0) {
@@ -314,16 +321,19 @@ static int CommandHandlerHelp(const char *args, size_t len)
     int written = 0;
     int retval = -1;
 
+    (void)args;
+    (void)len;
+
     written = snprintf(&buf[written],
                                sizeof(buf) - written, "214-The following commands are recognized.\r\n");
-    if ((written >= 0) && (written < sizeof(buf))) {
+    if ((written >= 0) && ((size_t)written < sizeof(buf))) {
         retval = 0;
     }
 
     if (retval == 0) {
         for (unsigned long i = 0; i < DIM(commands); i++) {
             written += snprintf(&buf[written], sizeof(buf) - written, " %s", commands[i].name);
-            if ((written < 0) || (written >= sizeof(buf))) {
+            if ((written < 0) || ((size_t)written >= sizeof(buf))) {
                 retval = -1;
                 break;
             }
@@ -332,7 +342,7 @@ static int CommandHandlerHelp(const char *args, size_t len)
 
     if (retval == 0) {
         written += snprintf(&buf[written], sizeof(buf) - written, "\r\n214 Help OK.");
-        if ((written < 0) || (written >= sizeof(buf))) {
+        if ((written < 0) || ((size_t)written >= sizeof(buf))) {
             retval = -1;
         }
     }
@@ -346,6 +356,9 @@ static int CommandHandlerHelp(const char *args, size_t len)
 
 static int CommandHandlerQuit(const char *args, size_t len)
 {
+    (void)args;
+    (void)len;
+
     return VSFTPServerSendReply("221 Bye.");
 }
 

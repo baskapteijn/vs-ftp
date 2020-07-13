@@ -37,11 +37,13 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     int retval = -1;
     int written = 0;
 
-    written = snprintf(concatPath, size, "%s/%s", cwd, path);
-    if ((written >= 0) && (written < size)) {
-        *concatPathLen = (size_t)written;
-        retval = 0;
-    } /* Else: buf too small to contain dir path. */
+    if ((cwdLen + pathLen) < size) {
+        written = snprintf(concatPath, size, "%s/%s", cwd, path);
+        if ((written >= 0) && ((size_t)written < size)) {
+            *concatPathLen = (size_t)written;
+            retval = 0;
+        } /* Else: buf too small to contain dir path. */
+    }
 
     return retval;
 }
@@ -80,7 +82,7 @@ int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, s
                 written = snprintf(buf, size, "%s/%s", path, ldir->d_name);
             }
 
-            if ((written >= 0) && (written < size)) {
+            if ((written >= 0) && ((size_t)written < size)) {
                 *bufLen = (size_t)written;
             } else {
                 /* buf too small to contain directory data. */
@@ -173,7 +175,7 @@ int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen,
     size_t pLen = 0;
 
     if ((path != NULL) && (pathLen > 0) &&
-        (absPath != NULL) && (size >= 0) && (absPathLen != NULL)) {
+        (absPath != NULL) && (size > 0) && (absPathLen != NULL)) {
         retval = 0;
     }
 
