@@ -408,7 +408,7 @@ int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
     }
     if (retval == 0) {
         written = snprintf(buf, size, serverData.cwd, serverData.cwdLen);
-        if ((written >= 0) && (written < size)) {
+        if ((written >= 0) && ((size_t)written < size)) {
             *len = (size_t)written;
         } else {
             retval = -1;
@@ -579,14 +579,14 @@ int VSFTPServerSendReply(const char *__restrict __format, ...)
     va_start(ap, __format);
     written = vsnprintf(buf, sizeof(buf), __format, ap);
     va_end(ap);
-    if ((written >= 0) && (written < sizeof(buf))) {
+    if ((written >= 0) && ((size_t)written < sizeof(buf))) {
         retval = 0;
     }
 
     /* Append \r\n. */
     if (retval == 0) {
         written += snprintf(&buf[written], sizeof(buf) - written, "\r\n");
-        if ((written < 0) || (written >= sizeof(buf))) {
+        if ((written < 0) || ((size_t)written >= sizeof(buf))) {
             retval = -1;
         }
     }
@@ -607,7 +607,7 @@ int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len)
 
     /* Append \r\n. */
     written = snprintf(&buf[len], size - len, "\r\n");
-    if ((written >= 0) && (written < size)) {
+    if ((written >= 0) && ((size_t)written < size)) {
         retval = 0;
     }
 
@@ -627,7 +627,7 @@ int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t si
 
     /* Append \r\n. */
     written = snprintf(&buf[len], size - len, "\r\n");
-    if ((written >= 0) && (written < size)) {
+    if ((written >= 0) && ((size_t)written < size)) {
         retval = 0;
     }
 
@@ -646,8 +646,8 @@ int VSFTPServerSendBinaryOwnSock(const int sock, const char *buf, const size_t s
     int retval = -1;
 
     lsend = write(sock, buf, size);
-    if (lsend != -1) {
-        *send = lsend;
+    if (lsend > -1) {
+        *send = (size_t)lsend;
         retval = 0;
     }
 

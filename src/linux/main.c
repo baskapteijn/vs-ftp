@@ -44,6 +44,8 @@ static void PrintHelp(void);
 
 static void Terminate(int signum)
 {
+    (void)signum;
+
     quit = 1;
 }
 
