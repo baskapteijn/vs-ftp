@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <arpa/inet.h>
 #include "vsftp_server.h"
 #include "vsftp_commands.h"
 #include "vsftp_filesystem.h"
@@ -589,7 +590,7 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size)
     return retval;
 }
 
-int VSFTPServerSendReply(const char *__restrict __format, ...)
+int VSFTPServerSendReply(const char *__restrict format, ...)
 {
     char buf[RESPONSE_LEN_MAX];
     int written = 0;
@@ -597,8 +598,8 @@ int VSFTPServerSendReply(const char *__restrict __format, ...)
     va_list ap;
 
     /* Write reply to buffer. */
-    va_start(ap, __format);
-    written = vsnprintf(buf, sizeof(buf), __format, ap);
+    va_start(ap, format);
+    written = vsnprintf(buf, sizeof(buf), format, ap);
     va_end(ap);
     if ((written >= 0) && ((size_t)written < sizeof(buf))) {
         retval = 0;
@@ -687,4 +688,11 @@ int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *rec
     }
 
     return retval;
+}
+
+int VSFTPServerIsValidIPAddress(char *ipAddress)
+{
+    struct sockaddr_in sa;
+
+    return inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
 }

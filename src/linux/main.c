@@ -21,11 +21,9 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <time.h>
-#include <arpa/inet.h>
 #include "vsftp_server.h"
 #include "version.h"
 #include "vsftp_filesystem.h"
-#include "io.h"
 
 #define DECIMAL_STRING_LEN_MAX          10U
 
@@ -151,13 +149,6 @@ static void PrintHelp(void)
     printf("  vs-ftp <server ip> <port> <root path>\n");
 }
 
-static bool IsValidIPAddress(char *ipAddress)
-{
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
-    return result != 0;
-}
-
 /*!
  * \brief This is the program entry.
  * \details
@@ -184,7 +175,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (IsValidIPAddress(argv[1]) == false) {
+    if (VSFTPServerIsValidIPAddress(argv[1]) != 1) {
         printf("Invalid IP address \"%s\"\n", argv[1]);
         printf("Note that hostnames are not supported\n\n");
         return -1;

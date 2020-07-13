@@ -48,10 +48,11 @@ extern int VSFTPServerGetTransferMode(bool *binary);
 extern int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, size_t *bufLen,
                                      bool prependDir, void **cookie);
 extern int VSFTPServerGetServerIP4(char *buf, size_t size);
-extern int VSFTPServerSendReply(const char *__restrict __format, ...);
+extern int VSFTPServerSendReply(const char *__restrict format, ...);
 extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);
 extern int VSFTPServerSendReplyOwnBufOwnSock(int sock, char *buf, size_t size, size_t len);
 extern int VSFTPServerSendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
 extern int VSFTPServerReceive(int sock, char *buf, size_t size, size_t *received);
+extern int VSFTPServerIsValidIPAddress(char *ipAddress);
 
 #endif /* VSFTP_SERVER_H__ */
