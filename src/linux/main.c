@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
     /* Initialize the VS-FTP Server. */
     retval = VSFTPServerInitialize(&vsftpConfigData);
     if (retval != 0) {
-        FTPLOG("Server initialization failed with exit code %d\n\n", retval);
+        FTPLOG("Server initialization failed with error %d\n\n", retval);
         return retval;
     }
 
@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
     do {
         retval = VSFTPServerHandler();
         if (retval != 0) {
-            FTPLOG("Server handler failed with exit code %d\n\n", retval);
+            FTPLOG("Server handler failed with error %d\n\n", retval);
             break;
         }
 
@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
     if (retval == 0) {
         retval = VSFTPServerStop();
         if (retval != 0) {
-            FTPLOG("Server stop failed with exit code %d\n\n", retval);
+            FTPLOG("Server stop failed with error %d\n\n", retval);
         }
     } else {
         (void)VSFTPServerStop(); /* Do not overwrite the previous error code. */

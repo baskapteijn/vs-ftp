@@ -9,6 +9,7 @@ set(SOURCE_FILES
     ${LINUX_SRC_DIR}/main.c
     ${LINUX_SRC_DIR}/version.h
     ${LINUX_SRC_DIR}/config.h
+    ${LINUX_SRC_DIR}/io.c
     ${LINUX_SRC_DIR}/io.h
     ${COMMON_SRC_DIR}/vsftp_server.c
     ${COMMON_SRC_DIR}/vsftp_server.h

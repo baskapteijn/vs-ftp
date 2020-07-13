@@ -179,7 +179,7 @@ static int WaitForIncomingConnection(void)
         if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
             /* No incoming connection. */
         } else {
-            FTPLOG("Socket listen failed with errno %d\n", errno);
+            FTPLOG("Socket listen failed with error %d\n", errno);
             (void)VSFTPServerStop();
         }
     }
@@ -205,7 +205,7 @@ static int HandleConnection(void)
         /* Handle the command, we currently ignore errors. */
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
-            FTPLOG("Command failed with code %d\n\n", retval);
+            FTPLOG("Command failed with error %d\n\n", retval);
             retval = 0; /* We do not break on a command parse failure, the printout is enough. */
         }
     } else if ((retval == 0) && (bytes_read == 0)) {
@@ -216,7 +216,7 @@ static int HandleConnection(void)
         if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
             /* No incoming data. */
         } else {
-            FTPLOG("Socket read failed\n");
+            FTPLOG("Socket read failed with error %d\n", errno);
             (void)VSFTPServerStop();
         }
     }
@@ -326,7 +326,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         /* Change the socket to be non-blocking. */
         retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0) | O_NONBLOCK);
         if (retval != 0) {
-            FTPLOG("Socket fcntl failed\n");
+            FTPLOG("Socket fcntl failed with error %d\n", retval);
         }
     }
 
@@ -335,7 +335,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         retval = setsockopt(*sock, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR),
                             (char *)&option, sizeof(option));
         if (retval != 0) {
-            FTPLOG("Socket setsockopt failed\n");
+            FTPLOG("Socket setsockopt failed with error %d\n", retval);
         }
     }
 
@@ -344,7 +344,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         retval = bind(*sock, (struct sockaddr *)sockData,
                       sizeof(*sockData));
         if (retval != 0) {
-            FTPLOG("Socket binding failed\n");
+            FTPLOG("Socket binding failed with error %d\n", retval);
         }
     }
 
@@ -352,7 +352,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         /* Mark the socket as a passive socket. */
         retval = listen(*sock, 1);
         if (retval != 0) {
-            FTPLOG("Socket listen failed\n");
+            FTPLOG("Socket listen failed with error %d\n", retval);
         }
     }
 
