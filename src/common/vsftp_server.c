@@ -230,6 +230,8 @@ static int HandleConnection(void)
             (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
             /* We do not break on a command parse failure, the printout is enough. */
             retval = 0;
+        } else {
+            FTPLOG("Command handled successfully\n");
         }
     } else if ((retval == 0) && (bytes_read == 0)) {
         /* Clean-up connection on disconnect, including server socket. */
