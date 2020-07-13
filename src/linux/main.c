@@ -21,11 +21,9 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <time.h>
-#include <arpa/inet.h>
 #include "vsftp_server.h"
 #include "version.h"
 #include "vsftp_filesystem.h"
-#include "io.h"
 
 #define DECIMAL_STRING_LEN_MAX          10U
 
@@ -145,17 +143,10 @@ static bool IsDecimal(const char *string, size_t len)
  */
 static void PrintHelp(void)
 {
-    FTPLOG("Version %s\n\n", GetVersionString());
+    printf("Version %s\n\n", GetVersionString());
 
-    FTPLOG("Usage:\n");
-    FTPLOG("  vs-ftp <server ip> <port> <root path>\n");
-}
-
-static bool IsValidIPAddress(char *ipAddress)
-{
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
-    return result != 0;
+    printf("Usage:\n");
+    printf("  vs-ftp <server ip> <port> <root path>\n");
 }
 
 /*!
@@ -179,33 +170,33 @@ int main(int argc, char *argv[])
     /* Check input arguments. */
     if (argc != 4) {
         /* Missing or too many arguments. */
-        FTPLOG("Invalid number of arguments\n\n");
+        printf("Invalid number of arguments\n\n");
         PrintHelp();
         return -1;
     }
 
-    if (IsValidIPAddress(argv[1]) == false) {
-        FTPLOG("Invalid IP address \"%s\"\n", argv[1]);
-        FTPLOG("Note that hostnames are not supported\n\n");
+    if (VSFTPServerIsValidIPAddress(argv[1]) != 1) {
+        printf("Invalid IP address \"%s\"\n", argv[1]);
+        printf("Note that hostnames are not supported\n\n");
         return -1;
     }
 
     if (IsDecimal(argv[2], strlen(argv[2])) != true) {
         /* Invalid port. */
-        FTPLOG("Invalid port \"%s\"\n\n", argv[2]);
+        printf("Invalid port \"%s\"\n\n", argv[2]);
         PrintHelp();
         return -1;
     }
 
     if (VSFTPFilesystemIsDir(argv[3], strlen(argv[3])) != 0) {
         /* Invalid directory. */
-        FTPLOG("Invalid directory \"%s\"\n\n", argv[3]);
+        printf("Invalid directory \"%s\"\n\n", argv[3]);
         PrintHelp();
         return -1;
     }
 
     /* Initialize termination on signal. */
-    memset(&action, 0, sizeof(struct sigaction));
+    (void)memset(&action, 0, sizeof(struct sigaction));
     action.sa_handler = Terminate;
     sigaction(SIGTERM, &action, NULL);
 
@@ -219,7 +210,7 @@ int main(int argc, char *argv[])
     /* Initialize the VS-FTP Server. */
     retval = VSFTPServerInitialize(&vsftpConfigData);
     if (retval != 0) {
-        FTPLOG("Server initialization failed with error %d\n\n", retval);
+        printf("Server initialization failed with error %d\n\n", retval);
         return retval;
     }
 
@@ -229,7 +220,7 @@ int main(int argc, char *argv[])
     do {
         retval = VSFTPServerHandler();
         if (retval != 0) {
-            FTPLOG("Server handler failed with error %d\n\n", retval);
+            printf("Server handler failed with error %d\n\n", retval);
             break;
         }
 
@@ -243,7 +234,7 @@ int main(int argc, char *argv[])
     if (retval == 0) {
         retval = VSFTPServerStop();
         if (retval != 0) {
-            FTPLOG("Server stop failed with error %d\n\n", retval);
+            printf("Server stop failed with error %d\n\n", retval);
         }
     } else {
         (void)VSFTPServerStop(); /* Do not overwrite the previous error code. */

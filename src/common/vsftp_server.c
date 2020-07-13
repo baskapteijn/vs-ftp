@@ -26,11 +26,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <arpa/inet.h>
 #include "vsftp_server.h"
 #include "vsftp_commands.h"
 #include "vsftp_filesystem.h"
 #include "config.h"
 #include "io.h"
+
+//TODO: investigate how to properly keep the server socket alive after the client disconnects. Is this possible?
 
 typedef struct {
     /*!
@@ -72,6 +75,8 @@ static int HandleConnection(void);
  */
 int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 {
+    FTPLOG("Initializing server\n");
+
     /* Copy server configuration data. */
     (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
                  sizeof(serverData.vsftpConfigData));
@@ -86,6 +91,8 @@ int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 int VSFTPServerStart(void)
 {
     int retval = -1;
+
+    FTPLOG("Starting server\n");
 
     /* Initialize structure data to invalid values. */
     serverData.transferSock = -1;
@@ -123,18 +130,29 @@ int VSFTPServerStart(void)
  */
 int VSFTPServerStop(void)
 {
+    FTPLOG("Stopping server\n");
+
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
-    (void)shutdown(serverData.transferSock, SHUT_RDWR);
-    (void)close(serverData.transferSock);
-    serverData.transferSock = -1;
+    if (serverData.transferSock != -1) {
+        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
+        (void)shutdown(serverData.transferSock, SHUT_RDWR);
+        (void)close(serverData.transferSock);
+        serverData.transferSock = -1;
+    }
 
-    (void)shutdown(serverData.clientSock, SHUT_RDWR);
-    (void)close(serverData.clientSock);
-    serverData.clientSock = -1;
+    if (serverData.clientSock != -1) {
+        FTPLOG("Closing client socket %d\n", serverData.clientSock);
+        (void)shutdown(serverData.clientSock, SHUT_RDWR);
+        (void)close(serverData.clientSock);
+        serverData.clientSock = -1;
+    }
 
-    (void)shutdown(serverData.serverSock, SHUT_RDWR);
-    (void)close(serverData.serverSock);
-    serverData.serverSock = -1;
+    if (serverData.serverSock != -1) {
+        FTPLOG("Closing server socket %d\n", serverData.serverSock);
+        (void)shutdown(serverData.serverSock, SHUT_RDWR);
+        (void)close(serverData.serverSock);
+        serverData.serverSock = -1;
+    }
 
     serverData.isServerSocketCreated = false;
     serverData.isConnected = false;
@@ -165,7 +183,7 @@ static int WaitForIncomingConnection(void)
                                    (struct sockaddr *)&serverData.client,
                                    (socklen_t *)&c);
     if (serverData.clientSock >= 0) {
-        FTPLOG("Connection accepted\n");
+        FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
 
         /* Set cwd to rootdir. */
         retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
@@ -205,8 +223,13 @@ static int HandleConnection(void)
         /* Handle the command, we currently ignore errors. */
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
-            FTPLOG("Command failed with error %d\n\n", retval);
-            retval = 0; /* We do not break on a command parse failure, the printout is enough. */
+            FTPLOG("Command failed with error %d\n", retval);
+            /* In case we get a list command (which creates a transfer socket, but is then rejected),
+             * or for any other reason, make sure to close a created but not used transfer socket.
+             */
+            (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
+            /* We do not break on a command parse failure, the printout is enough. */
+            retval = 0;
         }
     } else if ((retval == 0) && (bytes_read == 0)) {
         /* Clean-up connection on disconnect, including server socket. */
@@ -300,6 +323,7 @@ int VSFTPServerCloseTransferSocket(const int sock)
 
     if (retval == 0) {
         if (sock == serverData.transferSock) {
+            FTPLOG("Closing transfer socket %d\n", sock);
             (void)shutdown(serverData.transferSock, SHUT_RDWR);
             (void)close(serverData.transferSock);
             serverData.transferSock = -1;
@@ -332,8 +356,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
 
     if (retval == 0) {
         /* Change the socket options. */
-        retval = setsockopt(*sock, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR),
-                            (char *)&option, sizeof(option));
+        retval = setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, (char *)&option, sizeof(option));
         if (retval != 0) {
             FTPLOG("Socket setsockopt failed with error %d\n", retval);
         }
@@ -341,8 +364,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
 
     if (retval == 0) {
         /* Bind to the socket. */
-        retval = bind(*sock, (struct sockaddr *)sockData,
-                      sizeof(*sockData));
+        retval = bind(*sock, (struct sockaddr *)sockData, sizeof(*sockData));
         if (retval != 0) {
             FTPLOG("Socket binding failed with error %d\n", retval);
         }
@@ -568,7 +590,7 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size)
     return retval;
 }
 
-int VSFTPServerSendReply(const char *__restrict __format, ...)
+int VSFTPServerSendReply(const char *__restrict format, ...)
 {
     char buf[RESPONSE_LEN_MAX];
     int written = 0;
@@ -576,8 +598,8 @@ int VSFTPServerSendReply(const char *__restrict __format, ...)
     va_list ap;
 
     /* Write reply to buffer. */
-    va_start(ap, __format);
-    written = vsnprintf(buf, sizeof(buf), __format, ap);
+    va_start(ap, format);
+    written = vsnprintf(buf, sizeof(buf), format, ap);
     va_end(ap);
     if ((written >= 0) && ((size_t)written < sizeof(buf))) {
         retval = 0;
@@ -666,4 +688,11 @@ int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *rec
     }
 
     return retval;
+}
+
+int VSFTPServerIsValidIPAddress(char *ipAddress)
+{
+    struct sockaddr_in sa;
+
+    return inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
 }
