@@ -30,6 +30,7 @@
 #include "vsftp_commands.h"
 #include "vsftp_filesystem.h"
 #include "config.h"
+#include "io.h"
 
 typedef struct {
     /*!
@@ -164,7 +165,7 @@ static int WaitForIncomingConnection(void)
                                    (struct sockaddr *)&serverData.client,
                                    (socklen_t *)&c);
     if (serverData.clientSock >= 0) {
-        puts("Connection accepted");
+        FTPLOG("Connection accepted\n");
 
         /* Set cwd to rootdir. */
         retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
@@ -178,7 +179,7 @@ static int WaitForIncomingConnection(void)
         if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
             /* No incoming connection. */
         } else {
-            printf("Socket listen failed with errno %d\n", errno);
+            FTPLOG("Socket listen failed with errno %d\n", errno);
             (void)VSFTPServerStop();
         }
     }
@@ -199,23 +200,23 @@ static int HandleConnection(void)
     buffer[bytes_read] = '\0';
     if ((retval == 0) && (bytes_read > 0)) {
         StripCRAndNewline(buffer, &bytes_read);
-        printf("Received command from client: %s\n", buffer);
+        FTPLOG("Received command from client: %s\n", buffer);
 
         /* Handle the command, we currently ignore errors. */
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
-            printf("Command failed with code %d\n\n", retval);
+            FTPLOG("Command failed with code %d\n\n", retval);
             retval = 0; /* We do not break on a command parse failure, the printout is enough. */
         }
     } else if ((retval == 0) && (bytes_read == 0)) {
         /* Clean-up connection on disconnect, including server socket. */
-        puts("Client disconnected");
+        FTPLOG("Client disconnected\n");
         (void)VSFTPServerStop();
     } else {
         if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
             /* No incoming data. */
         } else {
-            puts("Socket read failed");
+            FTPLOG("Socket read failed\n");
             (void)VSFTPServerStop();
         }
     }
@@ -316,7 +317,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
     /* Create the socket. */
     *sock = socket(AF_INET, SOCK_STREAM, 0);
     if (*sock == -1) {
-        printf("Could not create socket on port %d\n", portNum);
+        FTPLOG("Could not create socket on port %d\n", portNum);
     } else {
         retval = 0;
     }
@@ -325,7 +326,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         /* Change the socket to be non-blocking. */
         retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0) | O_NONBLOCK);
         if (retval != 0) {
-            puts("Socket fcntl failed");
+            FTPLOG("Socket fcntl failed\n");
         }
     }
 
@@ -334,7 +335,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         retval = setsockopt(*sock, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR),
                             (char *)&option, sizeof(option));
         if (retval != 0) {
-            puts("Socket setsockopt failed");
+            FTPLOG("Socket setsockopt failed\n");
         }
     }
 
@@ -343,7 +344,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         retval = bind(*sock, (struct sockaddr *)sockData,
                       sizeof(*sockData));
         if (retval != 0) {
-            puts("Socket binding failed");
+            FTPLOG("Socket binding failed\n");
         }
     }
 
@@ -351,12 +352,12 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
         /* Mark the socket as a passive socket. */
         retval = listen(*sock, 1);
         if (retval != 0) {
-            puts("Socket listen failed");
+            FTPLOG("Socket listen failed\n");
         }
     }
 
     if (retval == 0) {
-        printf("Socket %d on port %d ready for connection...\n", *sock, portNum);
+        FTPLOG("Socket %d on port %d ready for connection...\n", *sock, portNum);
     } else {
         /* Just orderly shutdown and close the socket. */
         (void)shutdown(*sock, SHUT_RDWR);

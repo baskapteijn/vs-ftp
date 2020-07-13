@@ -25,6 +25,7 @@
 #include "vsftp_server.h"
 #include "version.h"
 #include "vsftp_filesystem.h"
+#include "io.h"
 
 #define DECIMAL_STRING_LEN_MAX          10U
 
@@ -142,10 +143,10 @@ static bool IsDecimal(const char *string, size_t len)
  */
 static void PrintHelp(void)
 {
-    printf("Version %s\n\n", GetVersionString());
+    FTPLOG("Version %s\n\n", GetVersionString());
 
-    printf("Usage:\n");
-    printf("  vs-ftp <server ip> <port> <root path>\n");
+    FTPLOG("Usage:\n");
+    FTPLOG("  vs-ftp <server ip> <port> <root path>\n");
 }
 
 static bool IsValidIPAddress(char *ipAddress)
@@ -176,27 +177,27 @@ int main(int argc, char *argv[])
     /* Check input arguments. */
     if (argc != 4) {
         /* Missing or too many arguments. */
-        printf("Invalid number of arguments\n\n");
+        FTPLOG("Invalid number of arguments\n\n");
         PrintHelp();
         return -1;
     }
 
     if (IsValidIPAddress(argv[1]) == false) {
-        printf("Invalid IP address \"%s\"\n", argv[1]);
-        printf("Note that hostnames are not supported\n\n");
+        FTPLOG("Invalid IP address \"%s\"\n", argv[1]);
+        FTPLOG("Note that hostnames are not supported\n\n");
         return -1;
     }
 
     if (IsDecimal(argv[2], strlen(argv[2])) != true) {
         /* Invalid port. */
-        printf("Invalid port \"%s\"\n\n", argv[2]);
+        FTPLOG("Invalid port \"%s\"\n\n", argv[2]);
         PrintHelp();
         return -1;
     }
 
     if (VSFTPFilesystemIsDir(argv[3], strlen(argv[3])) != 0) {
         /* Invalid directory. */
-        printf("Invalid directory \"%s\"\n\n", argv[3]);
+        FTPLOG("Invalid directory \"%s\"\n\n", argv[3]);
         PrintHelp();
         return -1;
     }
@@ -216,7 +217,7 @@ int main(int argc, char *argv[])
     /* Initialize the VS-FTP Server. */
     retval = VSFTPServerInitialize(&vsftpConfigData);
     if (retval != 0) {
-        printf("Server initialization failed with exit code %d\n\n", retval);
+        FTPLOG("Server initialization failed with exit code %d\n\n", retval);
         return retval;
     }
 
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
     do {
         retval = VSFTPServerHandler();
         if (retval != 0) {
-            printf("Server handler failed with exit code %d\n\n", retval);
+            FTPLOG("Server handler failed with exit code %d\n\n", retval);
             break;
         }
 
@@ -240,7 +241,7 @@ int main(int argc, char *argv[])
     if (retval == 0) {
         retval = VSFTPServerStop();
         if (retval != 0) {
-            printf("Server stop failed with exit code %d\n\n", retval);
+            FTPLOG("Server stop failed with exit code %d\n\n", retval);
         }
     } else {
         (void)VSFTPServerStop(); /* Do not overwrite the previous error code. */
