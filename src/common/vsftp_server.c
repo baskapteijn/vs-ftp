@@ -355,8 +355,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
 
     if (retval == 0) {
         /* Change the socket options. */
-        retval = setsockopt(*sock, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR),
-                            (char *)&option, sizeof(option));
+        retval = setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, (char *)&option, sizeof(option));
         if (retval != 0) {
             FTPLOG("Socket setsockopt failed with error %d\n", retval);
         }
@@ -364,8 +363,7 @@ static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const str
 
     if (retval == 0) {
         /* Bind to the socket. */
-        retval = bind(*sock, (struct sockaddr *)sockData,
-                      sizeof(*sockData));
+        retval = bind(*sock, (struct sockaddr *)sockData, sizeof(*sockData));
         if (retval != 0) {
             FTPLOG("Socket binding failed with error %d\n", retval);
         }
