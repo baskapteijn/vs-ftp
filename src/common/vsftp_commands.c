@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <netinet/in.h>
+#include <errno.h>
 #include "vsftp_server.h"
 #include "config.h"
 #include "vsftp_commands.h"
@@ -365,7 +366,7 @@ static int CommandHandlerQuit(const char *args, size_t len)
 int VSFTPCommandsParse(const char *buffer, size_t len)
 {
     bool commandFound = false;
-    int retval = -1;
+    int retval = ENOTSUP;
 
     for (unsigned long i = 0; i < DIM(commands); i++) {
         if (strncmp(buffer, commands[i].name, commands[i].nameLen) == 0) {
@@ -382,7 +383,8 @@ int VSFTPCommandsParse(const char *buffer, size_t len)
     }
 
     if (commandFound == false) {
-        retval = VSFTPServerSendReply("502 Command not implemented.");
+        /* If a command was not found, the return value should be -1. Do not overwrite this with the following call. */
+        (void)VSFTPServerSendReply("502 Command not implemented.");
     }
 
     return retval;

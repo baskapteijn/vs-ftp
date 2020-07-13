@@ -32,6 +32,8 @@
 #include "config.h"
 #include "io.h"
 
+//TODO: investigate how to properly keep the server socket alive after the client disconnects. Is this possible?
+
 typedef struct {
     /*!
      * A copy of the VS-FTP configuration data as given by the caller.
@@ -72,6 +74,8 @@ static int HandleConnection(void);
  */
 int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 {
+    FTPLOG("Initializing server\n");
+
     /* Copy server configuration data. */
     (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
                  sizeof(serverData.vsftpConfigData));
@@ -86,6 +90,8 @@ int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
 int VSFTPServerStart(void)
 {
     int retval = -1;
+
+    FTPLOG("Starting server\n");
 
     /* Initialize structure data to invalid values. */
     serverData.transferSock = -1;
@@ -123,6 +129,8 @@ int VSFTPServerStart(void)
  */
 int VSFTPServerStop(void)
 {
+    FTPLOG("Stopping server\n");
+
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
     if (serverData.transferSock != -1) {
         FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
@@ -214,8 +222,13 @@ static int HandleConnection(void)
         /* Handle the command, we currently ignore errors. */
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
-            FTPLOG("Command failed with error %d\n\n", retval);
-            retval = 0; /* We do not break on a command parse failure, the printout is enough. */
+            FTPLOG("Command failed with error %d\n", retval);
+            /* In case we get a list command (which creates a transfer socket, but is then rejected),
+             * or for any other reason, make sure to close a created but not used transfer socket.
+             */
+            (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
+            /* We do not break on a command parse failure, the printout is enough. */
+            retval = 0;
         }
     } else if ((retval == 0) && (bytes_read == 0)) {
         /* Clean-up connection on disconnect, including server socket. */
