@@ -124,17 +124,26 @@ int VSFTPServerStart(void)
 int VSFTPServerStop(void)
 {
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
-    (void)shutdown(serverData.transferSock, SHUT_RDWR);
-    (void)close(serverData.transferSock);
-    serverData.transferSock = -1;
+    if (serverData.transferSock != -1) {
+        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
+        (void)shutdown(serverData.transferSock, SHUT_RDWR);
+        (void)close(serverData.transferSock);
+        serverData.transferSock = -1;
+    }
 
-    (void)shutdown(serverData.clientSock, SHUT_RDWR);
-    (void)close(serverData.clientSock);
-    serverData.clientSock = -1;
+    if (serverData.clientSock != -1) {
+        FTPLOG("Closing client socket %d\n", serverData.clientSock);
+        (void)shutdown(serverData.clientSock, SHUT_RDWR);
+        (void)close(serverData.clientSock);
+        serverData.clientSock = -1;
+    }
 
-    (void)shutdown(serverData.serverSock, SHUT_RDWR);
-    (void)close(serverData.serverSock);
-    serverData.serverSock = -1;
+    if (serverData.serverSock != -1) {
+        FTPLOG("Closing server socket %d\n", serverData.serverSock);
+        (void)shutdown(serverData.serverSock, SHUT_RDWR);
+        (void)close(serverData.serverSock);
+        serverData.serverSock = -1;
+    }
 
     serverData.isServerSocketCreated = false;
     serverData.isConnected = false;
@@ -165,7 +174,7 @@ static int WaitForIncomingConnection(void)
                                    (struct sockaddr *)&serverData.client,
                                    (socklen_t *)&c);
     if (serverData.clientSock >= 0) {
-        FTPLOG("Connection accepted\n");
+        FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
 
         /* Set cwd to rootdir. */
         retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
@@ -300,6 +309,7 @@ int VSFTPServerCloseTransferSocket(const int sock)
 
     if (retval == 0) {
         if (sock == serverData.transferSock) {
+            FTPLOG("Closing transfer socket %d\n", sock);
             (void)shutdown(serverData.transferSock, SHUT_RDWR);
             (void)close(serverData.transferSock);
             serverData.transferSock = -1;
