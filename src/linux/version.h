@@ -38,7 +38,7 @@ static inline const char *GetVersionString(void)
 {
     static char version[VERSION_STRING_LEN];
 
-    (void)sprintf(version, "%u.%u.%u", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
+    (void)snprintf(version, sizeof(version),"%u.%u.%u", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
 
     return version;
 }
