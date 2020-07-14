@@ -26,8 +26,8 @@
 #include "config.h"
 #include "vsftp_commands.h"
 
-#define DIM(_a)             (sizeof((_a)) / sizeof(*(_a)))
-#define STRLEN(_a)          ((sizeof((_a)) / sizeof(*(_a))) - 1)
+#define DIM(_a)                     (sizeof((_a)) / sizeof(*(_a)))
+#define STRLEN(_a)                  ((sizeof((_a)) / sizeof(*(_a))) - 1)
 
 #define FTP_COMMAND_USER            "USER"
 #define FTP_COMMAND_PASV            "PASV"
@@ -71,12 +71,12 @@ static Command_s commands[] = {
 
 static int CommandHandlerUser(const char *args, size_t len)
 {
-    const char *user = "anonymous";
-    size_t lLen = 0;
+    const char user[] = "anonymous";
+    size_t lLen = STRLEN(user);
     int retval = -1;
 
-    /* (args != NULL) guaranteed by caller. */
-    lLen = strlen(user);
+    /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
+
     if ((len == lLen) && (strncmp(user, args, lLen) == 0)) {
         retval = VSFTPServerSendReply("230 User logged in, proceed.");
     } else {
@@ -96,6 +96,7 @@ static int CommandHandlerPasv(const char *args, size_t len)
     uint8_t p2 = 0;
     uint16_t portNumber = PASV_PORT_NUMBER;
 
+    /* args and len not used. */
     (void)args;
     (void)len;
 
@@ -150,11 +151,10 @@ static int CommandHandlerNlst(const char *args, size_t len)
     size_t dirAbsPathLen = 0;
     void *d = NULL;
 
-    /* (args != NULL) guaranteed by caller, len may be 0. */
+    /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
 
     /* Get socket. */
     retval = VSFTPServerGetTransferSocket(&pasv_server_sock);
-
     if (retval == 0) {
         if (len == 0) {
             /* Get cwd. */
@@ -206,6 +206,7 @@ static int CommandHandlerPwd(const char *args, size_t len)
     size_t cwdLen = 0;
     int retval = -1;
 
+    /* args and len not used. */
     (void)args;
     (void)len;
 
@@ -223,8 +224,7 @@ static int CommandHandlerCwd(const char *args, size_t len)
 {
     int retval = -1;
 
-    /* (args != NULL) guaranteed by caller. */
-    if (len > 0) {
+    if ((args != NULL) && (len > 0)) {
         retval = VSFTPServerSetCwd(args, len);
     }
 
@@ -249,8 +249,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     const char *localError = "451 Requested action aborted: Local error in processing.";
     bool isFileError = false;
 
-    /* (args != NULL) guaranteed by caller. */
-    if (len > 0) {
+    if ((args != NULL) && (len > 0)) {
         /* Get socket. */
         retval = VSFTPServerGetTransferSocket(&pasv_server_sock);
     }
@@ -322,11 +321,11 @@ static int CommandHandlerHelp(const char *args, size_t len)
     int written = 0;
     int retval = -1;
 
+    /* args and len not used. */
     (void)args;
     (void)len;
 
-    written = snprintf(&buf[written],
-                               sizeof(buf) - written, "214-The following commands are recognized.\r\n");
+    written = snprintf(buf, sizeof(buf), "214-The following commands are recognized.\r\n");
     if ((written >= 0) && ((size_t)written < sizeof(buf))) {
         retval = 0;
     }
@@ -357,6 +356,7 @@ static int CommandHandlerHelp(const char *args, size_t len)
 
 static int CommandHandlerQuit(const char *args, size_t len)
 {
+    /* args and len not used. */
     (void)args;
     (void)len;
 
