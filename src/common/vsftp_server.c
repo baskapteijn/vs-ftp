@@ -15,14 +15,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -32,8 +29,6 @@
 #include "vsftp_filesystem.h"
 #include "config.h"
 #include "io.h"
-
-//TODO: investigate how to properly keep the server socket alive after the client disconnects. Is this possible?
 
 typedef struct {
     /*!

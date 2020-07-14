@@ -19,7 +19,6 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include "vsftp_server.h"
