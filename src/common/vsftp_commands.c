@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include "vsftp_filesystem.h"
 #include "vsftp_server.h"
 #include "config.h"
 #include "vsftp_commands.h"
@@ -91,6 +92,7 @@ static int CommandHandlerPasv(const char *args, size_t len)
     int retval = -1;
     int pasv_server_sock = -1;
     char ipAddrBuf[INET_ADDRSTRLEN];
+    size_t ipAddrLen = 0;
     uint8_t p1 = 0;
     uint8_t p2 = 0;
     uint16_t portNumber = PASV_PORT_NUMBER;
@@ -119,9 +121,9 @@ static int CommandHandlerPasv(const char *args, size_t len)
         p1 = (uint8_t)(portNumber >> 8U);
         p2 = (uint8_t)(portNumber & 0xFFU);
 
-        retval = VSFTPServerGetServerIP4(ipAddrBuf, sizeof(ipAddrBuf));
+        retval = VSFTPServerGetServerIP4(ipAddrBuf, sizeof(ipAddrBuf), &ipAddrLen);
         if (retval == 0) {
-            for (unsigned long i = 0; i < sizeof(ipAddrBuf); i++) {
+            for (unsigned long i = 0; i < ipAddrLen; i++) {
                 if (ipAddrBuf[i] == '.') {
                     ipAddrBuf[i] = ',';
                 }
@@ -157,10 +159,10 @@ static int CommandHandlerNlst(const char *args, size_t len)
     if (retval == 0) {
         if (len == 0) {
             /* Get cwd. */
-            retval = VSFTPServerGetCwd(dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
+            retval = VSFTPFilesystemGetCwd(dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
         } else {
             /* Get requested dir. */
-            retval = VSFTPServerGetDirAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
+            retval = VSFTPFilesystemGetDirAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
         }
     }
 
@@ -175,7 +177,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
     if (retval == 0) {
         /* List dirs and files of given dir. */
         do {
-            retval = VSFTPServerListDirPerFile(dirAbsPath, dirAbsPathLen, buf, sizeof(buf), &bufLen, (len != 0), &d);
+            retval = VSFTPFilesystemListDirPerLine(dirAbsPath, dirAbsPathLen, buf, sizeof(buf), &bufLen, (len != 0), &d);
             if (retval != 0) {
                 break;
             }
@@ -209,7 +211,7 @@ static int CommandHandlerPwd(const char *args, size_t len)
     (void)args;
     (void)len;
 
-    retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+    retval = VSFTPFilesystemGetCwd(cwd, sizeof(cwd), &cwdLen);
     if (retval == 0) {
         retval = VSFTPServerSendReply("257 \"%s\"", cwd);
     } else {
@@ -224,7 +226,7 @@ static int CommandHandlerCwd(const char *args, size_t len)
     int retval = -1;
 
     if ((args != NULL) && (len > 0)) {
-        retval = VSFTPServerSetCwd(args, len);
+        retval = VSFTPFilesystemSetCwd(args, len);
     }
 
     if (retval == 0) {
@@ -254,7 +256,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+        retval = VSFTPFilesystemGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
         if (retval != 0) {
             isFileError = true;
         }

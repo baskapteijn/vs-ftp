@@ -27,8 +27,19 @@
 #include "vsftp_server.h"
 #include "vsftp_filesystem.h"
 
+typedef struct {
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen;
+    const char rootPath[PATH_LEN_MAX];
+    size_t rootPathLen;
+} VSFTPFilesystemData_s;
+
+static VSFTPFilesystemData_s filesystemData;
+
 static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
                             char *concatPath, size_t size, size_t *concatPathLen);
+static int IsAbsPath(const char *path, size_t pathLen);
+static int GetAbsPath(const char *path, size_t pathLen, char *absPath, size_t size, size_t *absPathLen);
 
 static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
                             char *concatPath, const size_t size, size_t *concatPathLen)
@@ -36,12 +47,140 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     int retval = -1;
     int written = 0;
 
-    if ((cwdLen + pathLen) < size) {
-        written = snprintf(concatPath, size, "%s/%s", cwd, path);
+    if ((cwd != NULL) && (cwdLen > 0) &&
+        (path != NULL) && (pathLen > 0) &&
+        (concatPath != NULL) && (size > 0) && (concatPathLen != 0)) {
+        retval = 0;
+    }
+    
+    if (retval == 0) {
+        if ((cwdLen + pathLen) < size) {
+            written = snprintf(concatPath, size, "%s/%s", cwd, path);
+            if ((written >= 0) && ((size_t)written < size)) {
+                *concatPathLen = (size_t)written;
+                retval = 0;
+            } /* Else: buf too small to contain dir path. */
+        }
+    }
+
+    return retval;
+}
+
+static int IsAbsPath(const char *path, const size_t pathLen)
+{
+    int retval = -1;
+
+    if ((path != NULL) && (pathLen > 0)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        if (path[0] != '/') {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+static int GetAbsPath(const char *path, const size_t pathLen, char *absPath, const size_t size, size_t *absPathLen)
+{
+    int retval = -1;
+    char *p = NULL;
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen = 0;
+    size_t pLen = 0;
+
+    if ((path != NULL) && (pathLen > 0) &&
+        (absPath != NULL) && (size > 0) && (absPathLen != NULL)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        retval = IsAbsPath(path, pathLen);
+        if (retval == 0) {
+            /* It's absolute. */
+            p = realpath(path, NULL);
+            if (p == NULL) {
+                retval = -1;
+            }
+
+            if (retval == 0) {
+                (void)strncpy(absPath, p, size);
+                *absPathLen = strnlen(p, PATH_LEN_MAX);
+                free(p);
+                retval = 0;
+            }
+        } else {
+            /* It's relative. */
+            retval = VSFTPFilesystemGetCwd(cwd, sizeof(cwd), &cwdLen);
+            if (retval == 0) {
+                retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, size, absPathLen);
+            }
+
+            /* Pass NULL in `resolved_path`. If `realpath` resolves the path it will alloc a buffer (up to PATH_MAX size)
+             * and return it's pointer. We have to free it. This is the safest way since we cannot pass the size of our own
+             * buffer for `resolved_path`.
+             */
+            if (retval == 0) {
+                p = realpath(absPath, NULL);
+                if (p != NULL) {
+                    pLen = strnlen(p, PATH_LEN_MAX);
+                    if (size > pLen) {
+                        (void)strncpy(absPath, p, size);
+                        *absPathLen = pLen;
+                    } else {
+                        retval = -1;
+                    }
+
+                    free(p);
+                }
+            }
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPFilesystemSetCwd(const char *dir, const size_t len)
+{
+    int retval = -1;
+    char cwd[PATH_LEN_MAX]; /* Local copy first. */
+    size_t cwdLen = 0;
+
+    /* Checks are performed in callee. */
+
+    retval = VSFTPFilesystemGetDirAbsPath(dir, len, cwd, sizeof(cwd), &cwdLen);
+    if (retval == 0) {
+        if (sizeof(filesystemData.cwd) > cwdLen) {
+            (void)strncpy(filesystemData.cwd, cwd, sizeof(filesystemData.cwd));
+            filesystemData.cwdLen = cwdLen;
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPFilesystemGetCwd(char *buf, const size_t size, size_t *len)
+{
+    int retval = -1;
+    int written = 0;
+
+    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
+    if ((buf != NULL) && (size > 0) && (len != NULL) &&
+        (filesystemData.cwdLen > 0) && (filesystemData.cwdLen < size)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        written = snprintf(buf, size, filesystemData.cwd, filesystemData.cwdLen);
         if ((written >= 0) && ((size_t)written < size)) {
-            *concatPathLen = (size_t)written;
-            retval = 0;
-        } /* Else: buf too small to contain dir path. */
+            *len = (size_t)written;
+        } else {
+            retval = -1;
+        }
     }
 
     return retval;
@@ -147,78 +286,58 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
     return retval;
 }
 
-int VSFTPFilesystemIsAbsPath(const char *path, const size_t pathLen)
+int VSFTPFilesystemGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
+                             size_t *absPathLen)
 {
+    char rootPath[PATH_LEN_MAX];
+    size_t rootPathLen = 0;
     int retval = -1;
 
-    if ((path != NULL) && (pathLen > 0)) {
+    if ((dir != NULL) && (len > 0) && (absPath != NULL) && (size > 0)) {
         retval = 0;
     }
 
     if (retval == 0) {
-        if (path[0] != '/') {
+        retval = GetAbsPath(dir, len, absPath, size, absPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(absPath, *absPathLen);
+    }
+
+    /* Make sure the new path is not above the root dir. */
+    if (retval == 0) {
+        retval = VSFTPServerGetServerRootPath(rootPath, sizeof(rootPath), &rootPathLen);
+    }
+
+    if (retval == 0) {
+        if (*absPathLen < rootPathLen) {
             retval = -1;
+        }
+    }
+
+    if (retval == 0) {
+        for (unsigned long i = 0; i < rootPathLen; i++) {
+            if (rootPath[i] != absPath[i]) {
+                retval = -1;
+                break;
+            }
         }
     }
 
     return retval;
 }
 
-int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen,
-                              char *absPath, const size_t size, size_t *absPathLen)
+int VSFTPFilesystemGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
+                                  size_t *absFilePathLen)
 {
     int retval = -1;
-    char *p = NULL;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
-    size_t pLen = 0;
 
-    if ((path != NULL) && (pathLen > 0) &&
-        (absPath != NULL) && (size > 0) && (absPathLen != NULL)) {
-        retval = 0;
-    }
+    /* Checks are performed in callee. */
 
+    retval = GetAbsPath(file, len, absFilePath, size, absFilePathLen);
     if (retval == 0) {
-        retval = VSFTPFilesystemIsAbsPath(path, pathLen);
-        if (retval == 0) {
-            /* It's absolute. */
-            p = realpath(path, NULL);
-            if (p == NULL) {
-                retval = -1;
-            }
-
-            if (retval == 0) {
-                (void)strncpy(absPath, p, size);
-                *absPathLen = strnlen(p, PATH_LEN_MAX);
-                free(p);
-                retval = 0;
-            }
-        } else {
-            /* It's relative. */
-            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
-            if (retval == 0) {
-                retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, size, absPathLen);
-            }
-
-            /* Pass NULL in `resolved_path`. If `realpath` resolves the path it will alloc a buffer (up to PATH_MAX size)
-             * and return it's pointer. We have to free it. This is the safest way since we cannot pass the size of our own
-             * buffer for `resolved_path`.
-             */
-            if (retval == 0) {
-                p = realpath(absPath, NULL);
-                if (p != NULL) {
-                    pLen = strnlen(p, PATH_LEN_MAX);
-                    if (size > pLen) {
-                        (void)strncpy(absPath, p, size);
-                        *absPathLen = pLen;
-                    } else {
-                        retval = -1;
-                    }
-
-                    free(p);
-                }
-            }
-        }
+        retval = VSFTPFilesystemIsFile(absFilePath, *absFilePathLen);
     }
 
     return retval;
@@ -255,5 +374,7 @@ int VSFTPFilesystemOpenFile(const char *absPath, const size_t absPathLen, int *f
 
 int VSFTPFilesystemCloseFile(const int fd)
 {
+    /* Checks are performed in callee. */
+
     return close(fd);
 }
