@@ -15,14 +15,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -32,8 +29,6 @@
 #include "vsftp_filesystem.h"
 #include "config.h"
 #include "io.h"
-
-//TODO: investigate how to properly keep the server socket alive after the client disconnects. Is this possible?
 
 typedef struct {
     /*!
@@ -48,10 +43,6 @@ typedef struct {
     struct sockaddr_in client;
     struct sockaddr_in transfer;
     bool transferModeBinary;
-
-    char cwd[PATH_LEN_MAX];
-    size_t cwdBufSize; //buffer size, not the length of the cwd string!
-    size_t cwdLen;
 
     bool isConnected;
     bool isServerSocketCreated;
@@ -98,8 +89,7 @@ int VSFTPServerStart(void)
     serverData.transferSock = -1;
     serverData.serverSock = -1;
     serverData.clientSock = -1;
-    serverData.cwdBufSize = sizeof(serverData.cwd);
-    retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+    retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
 
     if (retval == 0) {
         serverData.transferModeBinary = false;
@@ -186,7 +176,7 @@ static int WaitForIncomingConnection(void)
         FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
 
         /* Set cwd to rootdir. */
-        retval = VSFTPServerSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+        retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
         if (retval == 0) {
             retval = VSFTPServerSendReply("220 Service ready for new user.");
             if (retval == 0) {
@@ -421,99 +411,6 @@ int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock)
     return retval;
 }
 
-int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
-{
-    int retval = -1;
-    int written = 0;
-
-    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
-    if ((serverData.cwdLen > 0) && (serverData.cwdLen < size)) {
-        retval = 0;
-    }
-    if (retval == 0) {
-        written = snprintf(buf, size, serverData.cwd, serverData.cwdLen);
-        if ((written >= 0) && ((size_t)written < size)) {
-            *len = (size_t)written;
-        } else {
-            retval = -1;
-        }
-    }
-
-    return retval;
-}
-
-int VSFTPServerGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
-                             size_t *absPathLen)
-{
-    int retval = -1;
-
-    if ((dir != NULL) && (len > 0) && (absPath != NULL) && (size > 0)) {
-        retval = 0;
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemGetAbsPath(dir, len, absPath, size, absPathLen);
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemIsDir(absPath, *absPathLen);
-    }
-
-    /* Make sure the new path is not above the root dir. */
-    if (retval == 0) {
-        if (*absPathLen < serverData.vsftpConfigData.rootPathLen) {
-            retval = -1;
-        }
-    }
-
-    if (retval == 0) {
-        for (unsigned long i = 0; i < serverData.vsftpConfigData.rootPathLen; i++) {
-            if (serverData.vsftpConfigData.rootPath[i] != absPath[i]) {
-                retval = -1;
-                break;
-            }
-        }
-    }
-
-    return retval;
-}
-
-int VSFTPServerSetCwd(const char *dir, const size_t len)
-{
-    int retval = -1;
-    char cwd[PATH_LEN_MAX]; /* Local copy first. */
-    size_t cwdLen = 0;
-
-    /* Checks are performed in callee. */
-
-    retval = VSFTPServerGetDirAbsPath(dir, len, cwd, sizeof(cwd), &cwdLen);
-    if (retval == 0) {
-        if (serverData.cwdBufSize > cwdLen) {
-            (void)strncpy(serverData.cwd, cwd, serverData.cwdBufSize);
-            serverData.cwdLen = cwdLen;
-        } else {
-            retval = -1;
-        }
-    }
-
-    return retval;
-}
-
-int VSFTPServerGetFileAbsPath(const char *file, const size_t len, char *absFilePath, const size_t size,
-                              size_t *absFilePathLen)
-{
-    int retval = -1;
-
-    /* Checks are performed in callee. */
-
-    retval = VSFTPFilesystemGetAbsPath(file, len, absFilePath, size, absFilePathLen);
-    if (retval == 0) {
-        retval = VSFTPFilesystemIsFile(absFilePath, *absFilePathLen);
-    }
-
-    return retval;
-}
-
 int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len)
 {
     char fileBuf[FILE_READ_BUF_SIZE];
@@ -574,19 +471,53 @@ int VSFTPServerGetTransferMode(bool *binary)
     return retval;
 }
 
-int VSFTPServerListDirPerFile(const char *dir, size_t len, char *buf, size_t size, size_t *bufLen,
-                              bool prependDir, void **cookie)
+int VSFTPServerIsValidIPAddress(char *ipAddress)
 {
-    return VSFTPFilesystemListDirPerLine(dir, len, buf, size, bufLen, prependDir, cookie);
+    int retval = -1;
+    struct sockaddr_in sa;
+
+    if (ipAddress != NULL) {
+        retval = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
+    }
+
+    return retval;
 }
 
-int VSFTPServerGetServerIP4(char *buf, const size_t size)
+int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
 {
     int retval = -1;
 
-    if (size >= INET_ADDRSTRLEN) {
-        (void)strncpy(buf, serverData.vsftpConfigData.ipAddr, size);
+    if ((buf != NULL) && (size > 0)) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        if (size >= INET_ADDRSTRLEN) {
+            (void)strncpy(buf, serverData.vsftpConfigData.ipAddr, size);
+            *len = strlen(buf);
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerGetServerRootPath(char *buf, const size_t size, size_t *len)
+{
+    int retval = -1;
+
+    if ((buf != NULL) && (size > 0)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        if (size >= serverData.vsftpConfigData.rootPathLen) {
+            (void)strncpy(buf, serverData.vsftpConfigData.rootPath, size);
+            *len = strlen(buf);
+        } else {
+            retval = -1;
+        }
     }
 
     return retval;
@@ -690,11 +621,4 @@ int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *rec
     }
 
     return retval;
-}
-
-int VSFTPServerIsValidIPAddress(char *ipAddress)
-{
-    struct sockaddr_in sa;
-
-    return inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
 }
