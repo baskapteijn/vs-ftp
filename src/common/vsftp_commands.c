@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include "vsftp_filesystem.h"
 #include "vsftp_server.h"
 #include "config.h"
@@ -35,6 +36,7 @@
 #define FTP_COMMAND_PWD             "PWD"
 #define FTP_COMMAND_CWD             "CWD"
 #define FTP_COMMAND_RETR            "RETR"
+#define FTP_COMMAND_SIZE            "SIZE"
 #define FTP_COMMAND_TYPE            "TYPE"
 #define FTP_COMMAND_HELP            "HELP"
 #define FTP_COMMAND_QUIT            "QUIT"
@@ -53,6 +55,7 @@ static int CommandHandlerNlst(const char *args, size_t len);
 static int CommandHandlerPwd(const char *args, size_t len);
 static int CommandHandlerCwd(const char *args, size_t len);
 static int CommandHandlerRetr(const char *args, size_t len);
+static int CommandHandlerSize(const char *args, size_t len);
 static int CommandHandlerType(const char *args, size_t len);
 static int CommandHandlerHelp(const char *args, size_t len);
 static int CommandHandlerQuit(const char *args, size_t len);
@@ -64,6 +67,7 @@ static Command_s commands[] = {
         { FTP_COMMAND_PWD, STRLEN(FTP_COMMAND_PWD), CommandHandlerPwd },
         { FTP_COMMAND_CWD, STRLEN(FTP_COMMAND_CWD), CommandHandlerCwd },
         { FTP_COMMAND_RETR, STRLEN(FTP_COMMAND_RETR), CommandHandlerRetr },
+        { FTP_COMMAND_SIZE, STRLEN(FTP_COMMAND_SIZE), CommandHandlerSize },
         { FTP_COMMAND_TYPE, STRLEN(FTP_COMMAND_TYPE), CommandHandlerType },
         { FTP_COMMAND_HELP, STRLEN(FTP_COMMAND_HELP), CommandHandlerHelp },
         { FTP_COMMAND_QUIT, STRLEN(FTP_COMMAND_QUIT), CommandHandlerQuit }
@@ -287,6 +291,40 @@ static int CommandHandlerRetr(const char *args, size_t len)
 
     if (retval == 0) {
         retval = VSFTPServerSendReply("226 Transfer Complete.");
+    } else {
+        retval = VSFTPServerSendReply(isFileError == true ? fileNotFound : localError);
+    }
+
+    return retval;
+}
+
+static int CommandHandlerSize(const char *args, size_t len)
+{
+    int retval = -1;
+    char bufFilePath[PATH_LEN_MAX];
+    size_t bufFilePathLen = 0;
+    struct stat filestats;
+    const char *fileNotFound = "550 File not found.";
+    const char *localError = "451 Requested action aborted: Local error in processing.";
+    bool isFileError = false;
+
+    if ((args != NULL) && (len > 0)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+        if (retval != 0) {
+            isFileError = true;
+        }
+    }
+
+    if (retval == 0) {
+        retval = stat(bufFilePath, &filestats);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSendReply("213 %llu\r\n", (unsigned long long int)filestats.st_size);
     } else {
         retval = VSFTPServerSendReply(isFileError == true ? fileNotFound : localError);
     }
