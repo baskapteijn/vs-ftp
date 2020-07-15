@@ -245,26 +245,19 @@ static int Receive(const int sock, char *buf, const size_t size, size_t *receive
 int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const char *ipAddr, const size_t ipAddrLen,
                           const uint16_t port)
 {
+    int retval = -1;
+
     FTPLOG("Initializing server\n");
 
     /* Copy server configuration data. */
-    (void)strncpy(serverData.rootPath, rootPath, sizeof(serverData.rootPath));
-    serverData.rootPathLen = rootPathLen;
     (void)strncpy(serverData.ipAddr, ipAddr, sizeof(serverData.ipAddr));
     serverData.ipAddrLen = ipAddrLen;
     serverData.port = port;
 
-    /* Strip trailing slash(es) from rootPath. */
-    for (int i = (int)serverData.rootPathLen - 1; i > 0; i--) {
-        if (serverData.rootPath[i] == '/') {
-            serverData.rootPath[i] = '\0';
-            serverData.rootPathLen--;
-        } else {
-            break;
-        }
-    }
+    retval = VSFTPFilesystemGetDirAbsPath(rootPath, rootPathLen, serverData.rootPath, sizeof(serverData.rootPath),
+                                          &serverData.rootPathLen);
 
-    return 0;
+    return retval;
 }
 
 /*!

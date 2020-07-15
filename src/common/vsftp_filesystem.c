@@ -24,14 +24,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "config.h"
-#include "vsftp_server.h"
 #include "vsftp_filesystem.h"
 
 typedef struct {
     char cwd[PATH_LEN_MAX];
     size_t cwdLen;
-    const char rootPath[PATH_LEN_MAX];
-    size_t rootPathLen;
 } VSFTPFilesystemData_s;
 
 static VSFTPFilesystemData_s filesystemData;
@@ -145,19 +142,12 @@ static int GetAbsPath(const char *path, const size_t pathLen, char *absPath, con
 int VSFTPFilesystemSetCwd(const char *dir, const size_t len)
 {
     int retval = -1;
-    char cwd[PATH_LEN_MAX]; /* Local copy first. */
-    size_t cwdLen = 0;
 
     /* Checks are performed in callee. */
-
-    retval = VSFTPFilesystemGetDirAbsPath(dir, len, cwd, sizeof(cwd), &cwdLen);
-    if (retval == 0) {
-        if (sizeof(filesystemData.cwd) > cwdLen) {
-            (void)strncpy(filesystemData.cwd, cwd, sizeof(filesystemData.cwd));
-            filesystemData.cwdLen = cwdLen;
-        } else {
-            retval = -1;
-        }
+    if (sizeof(filesystemData.cwd) > len) {
+        (void)strncpy(filesystemData.cwd, dir, sizeof(filesystemData.cwd));
+        filesystemData.cwdLen = len;
+        retval = 0;
     }
 
     return retval;
@@ -289,8 +279,6 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
 int VSFTPFilesystemGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
                              size_t *absPathLen)
 {
-    char rootPath[PATH_LEN_MAX];
-    size_t rootPathLen = 0;
     int retval = -1;
 
     if ((dir != NULL) && (len > 0) && (absPath != NULL) && (size > 0)) {
@@ -303,26 +291,6 @@ int VSFTPFilesystemGetDirAbsPath(const char *dir, const size_t len, char *absPat
 
     if (retval == 0) {
         retval = VSFTPFilesystemIsDir(absPath, *absPathLen);
-    }
-
-    /* Make sure the new path is not above the root dir. */
-    if (retval == 0) {
-        retval = VSFTPServerGetServerRootPath(rootPath, sizeof(rootPath), &rootPathLen);
-    }
-
-    if (retval == 0) {
-        if (*absPathLen < rootPathLen) {
-            retval = -1;
-        }
-    }
-
-    if (retval == 0) {
-        for (unsigned long i = 0; i < rootPathLen; i++) {
-            if (rootPath[i] != absPath[i]) {
-                retval = -1;
-                break;
-            }
-        }
     }
 
     return retval;

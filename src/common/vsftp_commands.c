@@ -243,9 +243,39 @@ static int CommandHandlerPwd(const char *args, size_t len)
 static int CommandHandlerCwd(const char *args, size_t len)
 {
     int retval = -1;
+    char path[PATH_LEN_MAX]; /* Local copy first. */
+    size_t pathLen = 0;
+    char rootPath[PATH_LEN_MAX];
+    size_t rootPathLen = 0;
 
     if ((args != NULL) && (len > 0)) {
-        retval = VSFTPFilesystemSetCwd(args, len);
+        /* Get the absolute path. */
+        retval = VSFTPFilesystemGetDirAbsPath(args, len, path, sizeof(path), &pathLen);
+    }
+
+    /* Make sure the new path is not above the root path. */
+    if (retval == 0) {
+        retval = VSFTPServerGetServerRootPath(rootPath, sizeof(rootPath), &rootPathLen);
+    }
+
+    if (retval == 0) {
+        if (pathLen < rootPathLen) {
+            retval = -1;
+        }
+    }
+
+    if (retval == 0) {
+        for (unsigned long i = 0; i < rootPathLen; i++) {
+            if (rootPath[i] != path[i]) {
+                retval = -1;
+                break;
+            }
+        }
+    }
+
+    /* Set the new path. */
+    if (retval == 0) {
+        retval = VSFTPFilesystemSetCwd(path, pathLen);
     }
 
     if (retval == 0) {
