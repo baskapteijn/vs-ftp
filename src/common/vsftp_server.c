@@ -226,7 +226,23 @@ static int HandleConnection(void)
     } else if ((retval == 0) && (bytes_read == 0)) {
         /* Clean-up connection on disconnect, including server socket. */
         FTPLOG("Client disconnected\n");
-        (void)VSFTPServerStop();
+
+        /* We don't know in what state we currently are, just orderly shutdown and close everything. */
+        if (serverData.transferSock != -1) {
+            FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
+            (void)shutdown(serverData.transferSock, SHUT_RDWR);
+            (void)close(serverData.transferSock);
+            serverData.transferSock = -1;
+        }
+
+        if (serverData.clientSock != -1) {
+            FTPLOG("Closing client socket %d\n", serverData.clientSock);
+            (void)shutdown(serverData.clientSock, SHUT_RDWR);
+            (void)close(serverData.clientSock);
+            serverData.clientSock = -1;
+        }
+
+        serverData.isConnected = false;
     } else {
         if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
             /* No incoming data. */
