@@ -52,7 +52,7 @@ static vsftpServerData_s serverData;
 
 static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
 
-static inline void StripCRAndNewline(char *buf, size_t *len);
+static void StripCRAndNewline(char *buf, size_t *len);
 static int WaitForIncomingConnection(void);
 static int HandleConnection(void);
 
@@ -150,7 +150,7 @@ int VSFTPServerStop(void)
     return 0;
 }
 
-static inline void StripCRAndNewline(char *buf, size_t *len)
+static void StripCRAndNewline(char *buf, size_t *len)
 {
     for (unsigned long i = 0; i < *len; i++) {
         if ((buf[i] == '\r') ||
