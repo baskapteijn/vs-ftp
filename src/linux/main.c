@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
             /* Polling on a client, waiting to connect. */
             struct timespec ts;
             ts.tv_sec = 0;
-            ts.tv_nsec = (1 % 1000) * 1000000; /* 1 msec */
+            ts.tv_nsec = (10 % 1000) * 1000000; /* 10 msec */
             nanosleep(&ts, NULL);
         }
     } while (quit == 0);
