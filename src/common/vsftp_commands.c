@@ -31,6 +31,7 @@
 #define STRLEN(_a)                  ((sizeof((_a)) / sizeof(*(_a))) - 1)
 
 #define FTP_COMMAND_USER            "USER"
+#define FTP_COMMAND_SYST            "SYST"
 #define FTP_COMMAND_PASV            "PASV"
 #define FTP_COMMAND_NLST            "NLST"
 #define FTP_COMMAND_PWD             "PWD"
@@ -50,6 +51,7 @@ typedef struct {
 }Command_s;
 
 static int CommandHandlerUser(const char *args, size_t len);
+static int CommandHandlerSyst(const char *args, size_t len);
 static int CommandHandlerPasv(const char *args, size_t len);
 static int CommandHandlerNlst(const char *args, size_t len);
 static int CommandHandlerPwd(const char *args, size_t len);
@@ -62,6 +64,7 @@ static int CommandHandlerQuit(const char *args, size_t len);
 
 static Command_s commands[] = {
         { FTP_COMMAND_USER, STRLEN(FTP_COMMAND_USER), CommandHandlerUser },
+        { FTP_COMMAND_SYST, STRLEN(FTP_COMMAND_SYST), CommandHandlerSyst },
         { FTP_COMMAND_PASV, STRLEN(FTP_COMMAND_PASV), CommandHandlerPasv },
         { FTP_COMMAND_NLST, STRLEN(FTP_COMMAND_NLST), CommandHandlerNlst },
         { FTP_COMMAND_PWD, STRLEN(FTP_COMMAND_PWD), CommandHandlerPwd },
@@ -87,6 +90,18 @@ static int CommandHandlerUser(const char *args, size_t len)
         retval = VSFTPServerSendReply("530 Login incorrect.");
         (void)VSFTPServerClientDisconnect();
     }
+
+    return retval;
+}
+
+static int CommandHandlerSyst(const char *args, size_t len)
+{
+    int retval = -1;
+
+    (void)args;
+    (void)len;
+
+    retval = VSFTPServerSendReply("215 UNIX Type: L8");
 
     return retval;
 }
