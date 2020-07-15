@@ -18,9 +18,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <signal.h>
-#include <time.h>
 #include "vsftp_server.h"
 #include "version.h"
 #include "vsftp_filesystem.h"
@@ -222,19 +220,6 @@ int main(int argc, char *argv[])
         if (retval != 0) {
             printf("Server handler failed with error %d\n\n", retval);
             break;
-        }
-
-        if (VSFTPServerIsClientConnected() == 0) {
-            /* As soon as we are connected the read() function will cause the program to block until data is
-             * received.
-             * No need to wait to reduce CPU load, just let read() handle things.
-             */
-        } else {
-            /* Polling on a client, waiting to connect. */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = (10 % 1000) * 1000000; /* 10 msec */
-            nanosleep(&ts, NULL);
         }
     } while (quit == 0);
 

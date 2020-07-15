@@ -32,7 +32,6 @@ extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
 
-extern int VSFTPServerIsClientConnected(void);
 extern int VSFTPServerClientDisconnect(void);
 extern int VSFTPServerCreateTransferSocket(uint16_t port_num, int *sock);
 extern int VSFTPServerCloseTransferSocket(int sock);

@@ -83,8 +83,8 @@ static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockadd
     }
 
     if (retval == 0) {
-        /* Change the socket to be non-blocking. */
-        retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0) | O_NONBLOCK);
+        /* The socket is blocking. */
+        retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0));
         if (retval != 0) {
             FTPLOG("Socket fcntl failed with error %d\n", retval);
         }
@@ -360,11 +360,6 @@ int VSFTPServerHandler(void)
     }
 
     return retval;
-}
-
-int VSFTPServerIsClientConnected(void)
-{
-    return serverData.isConnected == true ? 0 : -1;
 }
 
 int VSFTPServerClientDisconnect(void)
