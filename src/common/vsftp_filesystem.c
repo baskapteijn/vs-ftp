@@ -24,14 +24,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "config.h"
+#include "vsftp_server.h"
 #include "vsftp_filesystem.h"
-
-typedef struct {
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen;
-} VSFTPFilesystemData_s;
-
-static VSFTPFilesystemData_s filesystemData;
 
 static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
                             char *concatPath, size_t size, size_t *concatPathLen);
@@ -110,7 +104,7 @@ static int GetAbsPath(const char *path, const size_t pathLen, char *absPath, con
             }
         } else {
             /* It's relative. */
-            retval = VSFTPFilesystemGetCwd(cwd, sizeof(cwd), &cwdLen);
+            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
             if (retval == 0) {
                 retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, size, absPathLen);
             }
@@ -133,43 +127,6 @@ static int GetAbsPath(const char *path, const size_t pathLen, char *absPath, con
                     free(p);
                 }
             }
-        }
-    }
-
-    return retval;
-}
-
-int VSFTPFilesystemSetCwd(const char *dir, const size_t len)
-{
-    int retval = -1;
-
-    /* Checks are performed in callee. */
-    if (sizeof(filesystemData.cwd) > len) {
-        (void)strncpy(filesystemData.cwd, dir, sizeof(filesystemData.cwd));
-        filesystemData.cwdLen = len;
-        retval = 0;
-    }
-
-    return retval;
-}
-
-int VSFTPFilesystemGetCwd(char *buf, const size_t size, size_t *len)
-{
-    int retval = -1;
-    int written = 0;
-
-    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
-    if ((buf != NULL) && (size > 0) && (len != NULL) &&
-        (filesystemData.cwdLen > 0) && (filesystemData.cwdLen < size)) {
-        retval = 0;
-    }
-
-    if (retval == 0) {
-        written = snprintf(buf, size, filesystemData.cwd, filesystemData.cwdLen);
-        if ((written >= 0) && ((size_t)written < size)) {
-            *len = (size_t)written;
-        } else {
-            retval = -1;
         }
     }
 

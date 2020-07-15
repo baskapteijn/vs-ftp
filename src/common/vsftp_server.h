@@ -38,6 +38,8 @@ extern int VSFTPServerGetTransferMode(bool *binary);
 extern int VSFTPServerIsValidIPAddress(char *ipAddress);
 extern int VSFTPServerGetServerIP4(char *buf, size_t size, size_t *len);
 extern int VSFTPServerGetServerRootPath(char *buf, size_t size, size_t *len);
+extern int VSFTPServerSetCwd(const char *dir, size_t len);
+extern int VSFTPServerGetCwd(char *buf, size_t size, size_t *len);
 
 extern int VSFTPServerSendReply(const char *__restrict format, ...);
 extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);

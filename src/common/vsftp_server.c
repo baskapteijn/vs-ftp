@@ -39,6 +39,8 @@ typedef struct {
     size_t rootPathLen;
 
     /* Internal data. */
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen;
     int serverSock;
     int clientSock;
     int transferSock;
@@ -142,7 +144,7 @@ static int WaitForIncomingConnection(void)
         FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
 
         /* Set cwd to rootdir. */
-        retval = VSFTPFilesystemSetCwd(serverData.rootPath, serverData.rootPathLen);
+        retval = VSFTPServerSetCwd(serverData.rootPath, serverData.rootPathLen);
         if (retval == 0) {
             retval = VSFTPServerSendReply("220 Service ready for new user.");
             if (retval == 0) {
@@ -274,7 +276,7 @@ int VSFTPServerStart(void)
     serverData.transferSock = -1;
     serverData.serverSock = -1;
     serverData.clientSock = -1;
-    retval = VSFTPFilesystemSetCwd(serverData.rootPath, serverData.rootPathLen);
+    retval = VSFTPServerSetCwd(serverData.rootPath, serverData.rootPathLen);
 
     if (retval == 0) {
         serverData.transferModeBinary = false;
@@ -574,6 +576,69 @@ int VSFTPServerGetServerRootPath(char *buf, const size_t size, size_t *len)
         if (size >= serverData.rootPathLen) {
             (void)strncpy(buf, serverData.rootPath, size);
             *len = strlen(buf);
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerSetCwd(const char *dir, const size_t len)
+{
+    int retval = -1;
+    char absPath[PATH_LEN_MAX]; /* Local copy first. */
+    size_t absPathLen = 0;
+
+    /* Checks are performed in callee. */
+
+    /* Get the absolute path. */
+    retval = VSFTPFilesystemGetDirAbsPath(dir, len, absPath, sizeof(absPath), &absPathLen);
+
+    /* Make sure the new path is not above the root path. */
+    if (retval == 0) {
+        if (absPathLen < serverData.rootPathLen) {
+            retval = -1;
+        }
+    }
+
+    if (retval == 0) {
+        for (unsigned long i = 0; i < serverData.rootPathLen; i++) {
+            if (serverData.rootPath[i] != absPath[i]) {
+                retval = -1;
+                break;
+            }
+        }
+    }
+
+    /* Set the new path. */
+    if (retval == 0) {
+        if (sizeof(serverData.cwd) > absPathLen) {
+            (void)strncpy(serverData.cwd, absPath, sizeof(serverData.cwd));
+            serverData.cwdLen = absPathLen;
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
+{
+    int retval = -1;
+    int written = 0;
+
+    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
+    if ((buf != NULL) && (size > 0) && (len != NULL) &&
+        (serverData.cwdLen > 0) && (serverData.cwdLen < size)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        written = snprintf(buf, size, serverData.cwd, serverData.cwdLen);
+        if ((written >= 0) && ((size_t)written < size)) {
+            *len = (size_t)written;
         } else {
             retval = -1;
         }

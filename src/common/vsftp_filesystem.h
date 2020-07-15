@@ -17,8 +17,6 @@
 #ifndef VSFTP_FILESYSTEM_H__
 #define VSFTP_FILESYSTEM_H__
 
-extern int VSFTPFilesystemSetCwd(const char *dir, size_t len);
-extern int VSFTPFilesystemGetCwd(char *buf, size_t size, size_t *len);
 extern int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
                                          bool prependDir, void **cookie);
 extern int VSFTPFilesystemIsDir(const char *dir, size_t dirLen);
