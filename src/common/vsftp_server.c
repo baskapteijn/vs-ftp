@@ -31,11 +31,14 @@
 #include "io.h"
 
 typedef struct {
-    /*!
-     * A copy of the VS-FTP configuration data as given by the caller.
-     */
-    VSFTPConfigData_s vsftpConfigData;
+    /* Configuration data. */
+    uint16_t port;
+    char rootPath[PATH_LEN_MAX];
+    char ipAddr[INET_ADDRSTRLEN];
+    size_t ipAddrLen;
+    size_t rootPathLen;
 
+    /* Internal data. */
     int serverSock;
     int clientSock;
     int transferSock;
@@ -139,7 +142,7 @@ static int WaitForIncomingConnection(void)
         FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
 
         /* Set cwd to rootdir. */
-        retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+        retval = VSFTPFilesystemSetCwd(serverData.rootPath, serverData.rootPathLen);
         if (retval == 0) {
             retval = VSFTPServerSendReply("220 Service ready for new user.");
             if (retval == 0) {
@@ -239,13 +242,27 @@ static int Receive(const int sock, char *buf, const size_t size, size_t *receive
  *      A pointer to the VS-FTP configuration data.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
-int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
+int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const char *ipAddr, const size_t ipAddrLen,
+                          const uint16_t port)
 {
     FTPLOG("Initializing server\n");
 
     /* Copy server configuration data. */
-    (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
-                 sizeof(serverData.vsftpConfigData));
+    (void)strncpy(serverData.rootPath, rootPath, sizeof(serverData.rootPath));
+    serverData.rootPathLen = rootPathLen;
+    (void)strncpy(serverData.ipAddr, ipAddr, sizeof(serverData.ipAddr));
+    serverData.ipAddrLen = ipAddrLen;
+    serverData.port = port;
+
+    /* Strip trailing slash(es) from rootPath. */
+    for (int i = (int)serverData.rootPathLen - 1; i > 0; i--) {
+        if (serverData.rootPath[i] == '/') {
+            serverData.rootPath[i] = '\0';
+            serverData.rootPathLen--;
+        } else {
+            break;
+        }
+    }
 
     return 0;
 }
@@ -264,7 +281,7 @@ int VSFTPServerStart(void)
     serverData.transferSock = -1;
     serverData.serverSock = -1;
     serverData.clientSock = -1;
-    retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+    retval = VSFTPFilesystemSetCwd(serverData.rootPath, serverData.rootPathLen);
 
     if (retval == 0) {
         serverData.transferModeBinary = false;
@@ -272,10 +289,10 @@ int VSFTPServerStart(void)
         /* Prepare sockaddr_in structure. */
         serverData.server.sin_family = AF_INET;
         serverData.server.sin_addr.s_addr = INADDR_ANY;
-        serverData.server.sin_port = htons(serverData.vsftpConfigData.port);
+        serverData.server.sin_port = htons(serverData.port);
 
         /* Create the socket. */
-        retval = CreatePassiveSocket((in_port_t)serverData.vsftpConfigData.port,
+        retval = CreatePassiveSocket((in_port_t)serverData.port,
                                                 &serverData.serverSock,
                                                 &serverData.server);
     }
@@ -542,7 +559,7 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
 
     if (retval == 0) {
         if (size >= INET_ADDRSTRLEN) {
-            (void)strncpy(buf, serverData.vsftpConfigData.ipAddr, size);
+            (void)strncpy(buf, serverData.ipAddr, size);
             *len = strlen(buf);
         } else {
             retval = -1;
@@ -561,8 +578,8 @@ int VSFTPServerGetServerRootPath(char *buf, const size_t size, size_t *len)
     }
 
     if (retval == 0) {
-        if (size >= serverData.vsftpConfigData.rootPathLen) {
-            (void)strncpy(buf, serverData.vsftpConfigData.rootPath, size);
+        if (size >= serverData.rootPathLen) {
+            (void)strncpy(buf, serverData.rootPath, size);
             *len = strlen(buf);
         } else {
             retval = -1;

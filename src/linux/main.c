@@ -30,8 +30,6 @@ volatile sig_atomic_t quit = 0;
 /* UINT32_MAX equivalent string. */
 const char *DecimalStringValueMax = "65365";
 
-static VSFTPConfigData_s vsftpConfigData;
-
 static void Terminate(int signum);
 static void ParseDecimal(const char *string, size_t len, uint16_t *number);
 static bool IsDecimalChar(char c);
@@ -162,6 +160,7 @@ static void PrintHelp(void)
  */
 int main(int argc, char *argv[])
 {
+    uint16_t port = 0;
     int retval = -1;
     struct sigaction action;
 
@@ -198,15 +197,9 @@ int main(int argc, char *argv[])
     action.sa_handler = Terminate;
     sigaction(SIGTERM, &action, NULL);
 
-    /* Initialize VS-FTP data structure. */
-    vsftpConfigData.ipAddr = argv[1];
-    vsftpConfigData.ipAddrLen = strlen(vsftpConfigData.ipAddr);
-    ParseDecimal(argv[2], strlen(argv[2]), &vsftpConfigData.port);
-    vsftpConfigData.rootPath = argv[3];
-    vsftpConfigData.rootPathLen = strlen(vsftpConfigData.rootPath);
-
     /* Initialize the VS-FTP Server. */
-    retval = VSFTPServerInitialize(&vsftpConfigData);
+    ParseDecimal(argv[2], strlen(argv[2]), &port);
+    retval = VSFTPServerInitialize(argv[3], strlen(argv[3]), argv[1], strlen(argv[1]), port);
     if (retval != 0) {
         printf("Server initialization failed with error %d\n\n", retval);
         return retval;

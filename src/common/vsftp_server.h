@@ -19,15 +19,8 @@
 
 #include <stdint.h>
 
-typedef struct {
-    uint16_t port;
-    const char *rootPath;
-    const char *ipAddr;
-    size_t ipAddrLen;
-    size_t rootPathLen;
-} VSFTPConfigData_s;
-
-extern int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData);
+extern int VSFTPServerInitialize(const char *rootPath, size_t rootPathLen, const char *ipAddr, size_t ipAddrLen,
+                                 uint16_t port);
 extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
