@@ -224,10 +224,18 @@ int main(int argc, char *argv[])
             break;
         }
 
-        struct timespec ts;
-        ts.tv_sec = 0;
-        ts.tv_nsec = (10 % 1000) * 1000000; /* 10 msec */
-        nanosleep(&ts, NULL);
+        if (VSFTPServerIsClientConnected() == 0) {
+            /* As soon as we are connected the read() function will cause the program to block until data is
+             * received.
+             * No need to wait to reduce CPU load, just let read() handle things.
+             */
+        } else {
+            /* Polling on a client, waiting to connect. */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = (1 % 1000) * 1000000; /* 1 msec */
+            nanosleep(&ts, NULL);
+        }
     } while (quit == 0);
 
     /* We have been signalled to quit, stop the VS-FTP Server. */

@@ -32,6 +32,7 @@ extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
 
+extern int VSFTPServerIsClientConnected(void);
 extern int VSFTPServerClientDisconnect(void);
 extern int VSFTPServerCreateTransferSocket(uint16_t port_num, int *sock);
 extern int VSFTPServerCloseTransferSocket(int sock);
@@ -49,7 +50,5 @@ extern int VSFTPServerGetServerRootPath(char *buf, size_t size, size_t *len);
 extern int VSFTPServerSendReply(const char *__restrict format, ...);
 extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);
 extern int VSFTPServerSendReplyOwnBufOwnSock(int sock, char *buf, size_t size, size_t len);
-extern int VSFTPServerSendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
-extern int VSFTPServerReceive(int sock, char *buf, size_t size, size_t *received);
 
 #endif /* VSFTP_SERVER_H__ */
