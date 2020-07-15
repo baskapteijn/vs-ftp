@@ -564,20 +564,21 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
     return retval;
 }
 
-int VSFTPServerGetServerRootPath(char *buf, const size_t size, size_t *len)
+int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPathLen)
 {
     int retval = -1;
 
-    if ((buf != NULL) && (size > 0)) {
+    /* Make sure the new path is not above the root path. */
+    if (absPathLen >= serverData.rootPathLen) {
         retval = 0;
     }
 
     if (retval == 0) {
-        if (size >= serverData.rootPathLen) {
-            (void)strncpy(buf, serverData.rootPath, size);
-            *len = strlen(buf);
-        } else {
-            retval = -1;
+        for (unsigned long i = 0; i < serverData.rootPathLen; i++) {
+            if (serverData.rootPath[i] != absPath[i]) {
+                retval = -1;
+                break;
+            }
         }
     }
 
@@ -597,18 +598,7 @@ int VSFTPServerSetCwd(const char *dir, const size_t len)
 
     /* Make sure the new path is not above the root path. */
     if (retval == 0) {
-        if (absPathLen < serverData.rootPathLen) {
-            retval = -1;
-        }
-    }
-
-    if (retval == 0) {
-        for (unsigned long i = 0; i < serverData.rootPathLen; i++) {
-            if (serverData.rootPath[i] != absPath[i]) {
-                retval = -1;
-                break;
-            }
-        }
+        retval = VSFTPServerAbsPathIsNotAboveRootPath(absPath, absPathLen);
     }
 
     /* Set the new path. */

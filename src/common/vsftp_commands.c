@@ -182,6 +182,11 @@ static int CommandHandlerNlst(const char *args, size_t len)
         } else {
             /* Get requested dir. */
             retval = VSFTPFilesystemGetDirAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
+
+            /* Make sure the new path is not above the root path. */
+            if (retval == 0) {
+                retval = VSFTPServerAbsPathIsNotAboveRootPath(dirAbsPath, dirAbsPathLen);
+            }
         }
     }
 

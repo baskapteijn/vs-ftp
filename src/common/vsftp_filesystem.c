@@ -104,7 +104,7 @@ static int GetAbsPath(const char *path, const size_t pathLen, char *absPath, con
             }
         } else {
             /* It's relative. */
-            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);  //TODO: i dont like this here...
             if (retval == 0) {
                 retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, size, absPathLen);
             }
@@ -234,7 +234,7 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
 }
 
 int VSFTPFilesystemGetDirAbsPath(const char *dir, const size_t len, char *absPath, const size_t size,
-                             size_t *absPathLen)
+                                 size_t *absPathLen)
 {
     int retval = -1;
 
