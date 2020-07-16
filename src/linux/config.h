@@ -26,6 +26,7 @@
 
 #define PASV_PORT_NUMBER    40000U
 
-#define LOG_FILE_PATH       ".."
+#define LOG_FILE_PATH       "/tmp"
 
 #endif /* CONFIG_H__ */
+
