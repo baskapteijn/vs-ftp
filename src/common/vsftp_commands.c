@@ -181,7 +181,11 @@ static int CommandHandlerNlst(const char *args, size_t len)
             retval = VSFTPServerGetCwd(dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
         } else {
             /* Get requested dir. */
-            retval = VSFTPFilesystemGetDirAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
+            retval = VSFTPFilesystemGetAbsPath(args, len, dirAbsPath, sizeof(dirAbsPath), &dirAbsPathLen);
+
+            if (retval == 0) {
+                retval = VSFTPFilesystemIsDir(dirAbsPath, dirAbsPathLen);
+            }
 
             /* Make sure the new path is not above the root path. */
             if (retval == 0) {
@@ -280,7 +284,11 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPFilesystemGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+        retval = VSFTPFilesystemGetAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsFile(bufFilePath, bufFilePathLen);
         if (retval != 0) {
             isFileError = true;
         }
@@ -333,7 +341,11 @@ static int CommandHandlerSize(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPFilesystemGetFileAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+        retval = VSFTPFilesystemGetAbsPath(args, len, bufFilePath, sizeof(bufFilePath), &bufFilePathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsFile(bufFilePath, bufFilePathLen);
         if (retval != 0) {
             isFileError = true;
         }

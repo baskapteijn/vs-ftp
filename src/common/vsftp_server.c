@@ -256,8 +256,12 @@ int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const 
     serverData.ipAddrLen = ipAddrLen;
     serverData.port = port;
 
-    retval = VSFTPFilesystemGetDirAbsPath(rootPath, rootPathLen, serverData.rootPath, sizeof(serverData.rootPath),
-                                          &serverData.rootPathLen);
+    retval = VSFTPFilesystemGetAbsPath(rootPath, rootPathLen, serverData.rootPath, sizeof(serverData.rootPath),
+                                       &serverData.rootPathLen);
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(serverData.rootPath, serverData.rootPathLen);
+    }
 
     return retval;
 }
@@ -594,7 +598,10 @@ int VSFTPServerSetCwd(const char *dir, const size_t len)
     /* Checks are performed in callee. */
 
     /* Get the absolute path. */
-    retval = VSFTPFilesystemGetDirAbsPath(dir, len, absPath, sizeof(absPath), &absPathLen);
+    retval = VSFTPFilesystemGetAbsPath(dir, len, absPath, sizeof(absPath), &absPathLen);
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(absPath, absPathLen);
+    }
 
     /* Make sure the new path is not above the root path. */
     if (retval == 0) {

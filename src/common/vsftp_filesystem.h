@@ -21,11 +21,8 @@ extern int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char 
                                          bool prependDir, void **cookie);
 extern int VSFTPFilesystemIsDir(const char *dir, size_t dirLen);
 extern int VSFTPFilesystemIsFile(const char *file, size_t fileLen);
-
-extern int VSFTPFilesystemGetDirAbsPath(const char *dir, size_t len, char *absPath, size_t size,
-                                        size_t *absPathLen);
-extern int VSFTPFilesystemGetFileAbsPath(const char *file, size_t len, char *absFilePath, size_t size,
-                                         size_t *absFilePathLen);
+extern int VSFTPFilesystemGetAbsPath(const char *path, size_t pathLen, char *absPath, size_t size,
+                                     size_t *absPathLen);
 extern int VSFTPFilesystemOpenFile(const char *absPath, size_t absPathLen, int *fd, size_t *size);
 extern int VSFTPFilesystemCloseFile(int fd);
 
