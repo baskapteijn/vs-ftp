@@ -27,3 +27,4 @@ extern int VSFTPFilesystemOpenFile(const char *absPath, size_t absPathLen, int *
 extern int VSFTPFilesystemCloseFile(int fd);
 
 #endif /* VSFTP_FILESYSTEM_H__ */
+

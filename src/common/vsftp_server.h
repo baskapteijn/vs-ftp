@@ -46,3 +46,4 @@ extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);
 extern int VSFTPServerSendReplyOwnBufOwnSock(int sock, char *buf, size_t size, size_t len);
 
 #endif /* VSFTP_SERVER_H__ */
+

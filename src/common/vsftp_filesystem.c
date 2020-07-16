@@ -259,3 +259,4 @@ int VSFTPFilesystemCloseFile(const int fd)
 
     return close(fd);
 }
+
