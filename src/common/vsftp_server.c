@@ -284,7 +284,7 @@ int VSFTPServerStart(void)
     retval = VSFTPServerSetCwd(serverData.rootPath, serverData.rootPathLen);
 
     if (retval == 0) {
-        serverData.transferModeBinary = false;
+        serverData.transferModeBinary = true;
 
         /* Prepare sockaddr_in structure. */
         serverData.server.sin_family = AF_INET;
