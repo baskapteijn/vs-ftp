@@ -48,11 +48,33 @@ rc=$?; if [[ $rc != 0 ]]; then exit_on_error $rc; fi
     # Try to retrieve a non-existing file
     wget ftp://127.0.0.1:2021//tmp/not_existing_file.bin
 
-    #TODO: add more lftp commands and/or wget transfers
+    # Get the remote HELP, ascii mode and binary mode through pftp with a 'here-document', lftp cannot do it.
+    # Note that each line in the here-document cannot be preceded by a space (tabs do not seem to work either).
+pftp 127.0.0.1 2021 <<HERE
+anonymous
+rhelp
+ascii
+binary
+quit
+HERE
+
+    # Do some invalid argument tests, don't start a background process because they should terminate automatically
 
     # Kill all and any vs-ftp process by sending SIGTERM (which is handled properly)
     killall vs-ftp
-} # &> /dev/null
+
+    # Start the server with a hostname (not supported)
+    ./vs-ftp localhost 2021 /tmp
+
+    # Start the server with an invalid (might be relative) path (not supported)
+    ./vs-ftp 127.0.0.1 2021 tmp
+
+    # Start the server with an invalid (random ascii) port (not supported)
+    ./vs-ftp 127.0.0.1 abcd /tmp
+
+    # Start the server with an invalid number of arguments
+    ./vs-ftp 127.0.0.1 abcd
+} &> /dev/null
 
 # Output the coverage result
 {
