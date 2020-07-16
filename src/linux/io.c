@@ -23,6 +23,20 @@
 
 static FILE *logFp = NULL;
 
+/*!
+ * \brief Logging function for the FTP server.
+ * \details
+ *      Prints any given output prefixed by a date/time stamp and the filename/line of origin.
+ *      Output is printed to stdout and a file in LOG_FILE_PATH.
+ * \param file
+ *      The filename of origin.
+ * \param line
+ *      The line of origin.
+ * \param format
+ *      The format of the output.
+ * \param ...
+ *      Optional arguments of the output.
+ */
 void FTPLog(const char *file, uint32_t line, const char *format, ...)
 {
     char time_buf[100];
