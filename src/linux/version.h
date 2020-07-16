@@ -1,6 +1,6 @@
 /*
  * This file is part of the vs-ftp distribution (https://github.com/baskapteijn/vs-ftp).
- * Copyright (c) 2019 Bas Kapteijn.
+ * Copyright (c) 2020 Bas Kapteijn.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
