@@ -36,6 +36,12 @@ static bool IsDecimalChar(char c);
 static bool IsDecimal(const char *string, size_t len);
 static void PrintHelp(void);
 
+/*!
+ * \brief Termination signal callback function.
+ * \details Sets the global 'quit' flag to 1 to signal main() that it should quit gracefully.
+ * \param signum
+ *      The signal number.
+ */
 static void Terminate(int signum)
 {
     (void)signum;
