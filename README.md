@@ -17,12 +17,12 @@ This readme assumes a Linux based host machine.
 
 ### For building
 
-* [CMake](https://cmake.org/) 3.2.3 or higher
+* [CMake](https://cmake.org/) 3.7.2 or higher
 * [GNU](https://gcc.gnu.org/) 6.3.0 C compiler or compatible
 
 ### For coverage
 
-* [LCOV](http://ltp.sourceforge.net/coverage/lcov.php) 1.12 or compatible
+* [LCOV](http://ltp.sourceforge.net/coverage/lcov.php) 1.13 or compatible
 
 ## Building
 
