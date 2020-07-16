@@ -19,15 +19,8 @@
 
 #include <stdint.h>
 
-typedef struct {
-    uint16_t port;
-    const char *rootPath;
-    const char *ipAddr;
-    size_t ipAddrLen;
-    size_t rootPathLen;
-} VSFTPConfigData_s;
-
-extern int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData);
+extern int VSFTPServerInitialize(const char *rootPath, size_t rootPathLen, const char *ipAddr, size_t ipAddrLen,
+                                 uint16_t port);
 extern int VSFTPServerStart(void);
 extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
@@ -44,12 +37,12 @@ extern int VSFTPServerGetTransferMode(bool *binary);
 
 extern int VSFTPServerIsValidIPAddress(char *ipAddress);
 extern int VSFTPServerGetServerIP4(char *buf, size_t size, size_t *len);
-extern int VSFTPServerGetServerRootPath(char *buf, size_t size, size_t *len);
+extern int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, size_t absPathLen);
+extern int VSFTPServerSetCwd(const char *dir, size_t len);
+extern int VSFTPServerGetCwd(char *buf, size_t size, size_t *len);
 
 extern int VSFTPServerSendReply(const char *__restrict format, ...);
 extern int VSFTPServerSendReplyOwnBuf(char *buf, size_t size, size_t len);
 extern int VSFTPServerSendReplyOwnBufOwnSock(int sock, char *buf, size_t size, size_t len);
-extern int VSFTPServerSendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
-extern int VSFTPServerReceive(int sock, char *buf, size_t size, size_t *received);
 
 #endif /* VSFTP_SERVER_H__ */

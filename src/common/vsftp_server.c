@@ -31,11 +31,16 @@
 #include "io.h"
 
 typedef struct {
-    /*!
-     * A copy of the VS-FTP configuration data as given by the caller.
-     */
-    VSFTPConfigData_s vsftpConfigData;
+    /* Configuration data. */
+    uint16_t port;
+    char rootPath[PATH_LEN_MAX];
+    char ipAddr[INET_ADDRSTRLEN];
+    size_t ipAddrLen;
+    size_t rootPathLen;
 
+    /* Internal data. */
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen;
     int serverSock;
     int clientSock;
     int transferSock;
@@ -50,11 +55,186 @@ typedef struct {
 
 static vsftpServerData_s serverData;
 
-static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
-
-static inline void StripCRAndNewline(char *buf, size_t *len);
+static void StripCRAndNewline(char *buf, size_t *len);
+static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
 static int WaitForIncomingConnection(void);
 static int HandleConnection(void);
+static int SendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
+static int Receive(int sock, char *buf, size_t size, size_t *received);
+
+static void StripCRAndNewline(char *buf, size_t *len)
+{
+    for (unsigned long i = 0; i < *len; i++) {
+        if ((buf[i] == '\r') ||
+            (buf[i] == '\n')) {
+            buf[i] = '\0';
+            *len = i;
+            break;
+        }
+    }
+}
+
+static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData)
+{
+    int retval = -1;
+    int option = 1;
+
+    /* Create the socket. */
+    *sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (*sock == -1) {
+        FTPLOG("Could not create socket on port %d\n", portNum);
+    } else {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        /* The socket is blocking. */
+        retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0));
+        if (retval != 0) {
+            FTPLOG("Socket fcntl failed with error %d\n", retval);
+        }
+    }
+
+    if (retval == 0) {
+        /* Change the socket options. */
+        retval = setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, (char *)&option, sizeof(option));
+        if (retval != 0) {
+            FTPLOG("Socket setsockopt failed with error %d\n", retval);
+        }
+    }
+
+    if (retval == 0) {
+        /* Bind to the socket. */
+        retval = bind(*sock, (struct sockaddr *)sockData, sizeof(*sockData));
+        if (retval != 0) {
+            FTPLOG("Socket binding failed with error %d\n", retval);
+        }
+    }
+
+    if (retval == 0) {
+        /* Mark the socket as a passive socket. */
+        retval = listen(*sock, 1);
+        if (retval != 0) {
+            FTPLOG("Socket listen failed with error %d\n", retval);
+        }
+    }
+
+    if (retval == 0) {
+        FTPLOG("Socket %d on port %d ready for connection...\n", *sock, portNum);
+    } else {
+        /* Just orderly shutdown and close the socket. */
+        (void)shutdown(*sock, SHUT_RDWR);
+        (void)close(*sock);
+    }
+
+    return retval;
+}
+
+static int WaitForIncomingConnection(void)
+{
+    int c = 0;
+    int retval = 0;
+
+    /* Poll for an incoming connection and accept it when there is 1. */
+    c = sizeof(struct sockaddr_in);
+    serverData.clientSock = accept(serverData.serverSock,
+                                   (struct sockaddr *)&serverData.client,
+                                   (socklen_t *)&c);
+    if (serverData.clientSock >= 0) {
+        FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
+
+        /* Set cwd to rootdir. */
+        retval = VSFTPServerSetCwd(serverData.rootPath, serverData.rootPathLen);
+        if (retval == 0) {
+            retval = VSFTPServerSendReply("220 Service ready for new user.");
+            if (retval == 0) {
+                serverData.isConnected = true;
+            }
+        }
+    } else {
+        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
+            /* No incoming connection. */
+        } else {
+            FTPLOG("Socket listen failed with error %d\n", errno);
+            (void)VSFTPServerStop();
+        }
+    }
+
+    return retval;
+}
+
+static int HandleConnection(void)
+{
+    int retval = -1;
+    /* Polling read commands from client. */
+    size_t bytes_read = 0;
+    char buffer[REQUEST_LEN_MAX];
+
+    retval = Receive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
+
+    /* Terminate the buffer. */
+    buffer[bytes_read] = '\0';
+    if ((retval == 0) && (bytes_read > 0)) {
+        StripCRAndNewline(buffer, &bytes_read);
+        FTPLOG("Received command from client: %s\n", buffer);
+
+        /* Handle the command, we currently ignore errors. */
+        retval = VSFTPCommandsParse(buffer, bytes_read);
+        if (retval != 0) {
+            FTPLOG("Command failed with error %d\n", retval);
+            /* In case we get a list command (which creates a transfer socket, but is then rejected),
+             * or for any other reason, make sure to close a created but not used transfer socket.
+             */
+            (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
+            /* We do not break on a command parse failure, the printout is enough. */
+            retval = 0;
+        } else {
+            FTPLOG("Command handled successfully\n");
+        }
+    } else if ((retval == 0) && (bytes_read == 0)) {
+        /* Clean-up connection on disconnect, including server socket. */
+        FTPLOG("Client connection lost\n");
+
+        VSFTPServerClientDisconnect();
+    } else {
+        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
+            /* No incoming data. */
+        } else {
+            FTPLOG("Socket read failed with error %d\n", errno);
+            (void)VSFTPServerStop();
+        }
+    }
+
+    return retval;
+}
+
+static int SendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send)
+{
+    ssize_t lsend = 0;
+    int retval = -1;
+
+    lsend = write(sock, buf, size);
+    if (lsend > -1) {
+        *send = (size_t)lsend;
+        retval = 0;
+    }
+
+    return retval;
+}
+
+static int Receive(const int sock, char *buf, const size_t size, size_t *received)
+{
+    ssize_t bytesRead = 0;
+    int retval = -1;
+
+    bytesRead = read(sock, buf, size);
+    if (bytesRead != -1) {
+        *received = (size_t)bytesRead;
+        retval = 0;
+    }
+
+    return retval;
+}
 
 /*!
  * \brief Initialize the VS-FTP server.
@@ -64,15 +244,27 @@ static int HandleConnection(void);
  *      A pointer to the VS-FTP configuration data.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
-int VSFTPServerInitialize(const VSFTPConfigData_s *vsftpConfigData)
+int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const char *ipAddr, const size_t ipAddrLen,
+                          const uint16_t port)
 {
+    int retval = -1;
+
     FTPLOG("Initializing server\n");
 
     /* Copy server configuration data. */
-    (void)memcpy(&serverData.vsftpConfigData, vsftpConfigData,
-                 sizeof(serverData.vsftpConfigData));
+    (void)strncpy(serverData.ipAddr, ipAddr, sizeof(serverData.ipAddr));
+    serverData.ipAddrLen = ipAddrLen;
+    serverData.port = port;
 
-    return 0;
+    retval = VSFTPFilesystemGetRealPath(NULL, 0, rootPath, rootPathLen, serverData.rootPath,
+                                        sizeof(serverData.rootPath),
+                                        &serverData.rootPathLen);
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(serverData.rootPath, serverData.rootPathLen);
+    }
+
+    return retval;
 }
 
 /*!
@@ -89,7 +281,7 @@ int VSFTPServerStart(void)
     serverData.transferSock = -1;
     serverData.serverSock = -1;
     serverData.clientSock = -1;
-    retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
+    retval = VSFTPServerSetCwd(serverData.rootPath, serverData.rootPathLen);
 
     if (retval == 0) {
         serverData.transferModeBinary = false;
@@ -97,10 +289,10 @@ int VSFTPServerStart(void)
         /* Prepare sockaddr_in structure. */
         serverData.server.sin_family = AF_INET;
         serverData.server.sin_addr.s_addr = INADDR_ANY;
-        serverData.server.sin_port = htons(serverData.vsftpConfigData.port);
+        serverData.server.sin_port = htons(serverData.port);
 
         /* Create the socket. */
-        retval = VSFTPServerCreatePassiveSocket((in_port_t)serverData.vsftpConfigData.port,
+        retval = CreatePassiveSocket((in_port_t)serverData.port,
                                                 &serverData.serverSock,
                                                 &serverData.server);
     }
@@ -150,95 +342,6 @@ int VSFTPServerStop(void)
     return 0;
 }
 
-static inline void StripCRAndNewline(char *buf, size_t *len)
-{
-    for (unsigned long i = 0; i < *len; i++) {
-        if ((buf[i] == '\r') ||
-            (buf[i] == '\n')) {
-            buf[i] = '\0';
-            *len = i;
-            break;
-        }
-    }
-}
-
-static int WaitForIncomingConnection(void)
-{
-    int c = 0;
-    int retval = 0;
-
-    /* Poll for an incoming connection and accept it when there is 1. */
-    c = sizeof(struct sockaddr_in);
-    serverData.clientSock = accept(serverData.serverSock,
-                                   (struct sockaddr *)&serverData.client,
-                                   (socklen_t *)&c);
-    if (serverData.clientSock >= 0) {
-        FTPLOG("Client socket %d connection accepted\n", serverData.clientSock);
-
-        /* Set cwd to rootdir. */
-        retval = VSFTPFilesystemSetCwd(serverData.vsftpConfigData.rootPath, serverData.vsftpConfigData.rootPathLen);
-        if (retval == 0) {
-            retval = VSFTPServerSendReply("220 Service ready for new user.");
-            if (retval == 0) {
-                serverData.isConnected = true;
-            }
-        }
-    } else {
-        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
-            /* No incoming connection. */
-        } else {
-            FTPLOG("Socket listen failed with error %d\n", errno);
-            (void)VSFTPServerStop();
-        }
-    }
-
-    return retval;
-}
-
-static int HandleConnection(void)
-{
-    int retval = -1;
-    /* Polling read commands from client. */
-    size_t bytes_read = 0;
-    char buffer[REQUEST_LEN_MAX];
-
-    retval = VSFTPServerReceive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
-
-    /* Terminate the buffer. */
-    buffer[bytes_read] = '\0';
-    if ((retval == 0) && (bytes_read > 0)) {
-        StripCRAndNewline(buffer, &bytes_read);
-        FTPLOG("Received command from client: %s\n", buffer);
-
-        /* Handle the command, we currently ignore errors. */
-        retval = VSFTPCommandsParse(buffer, bytes_read);
-        if (retval != 0) {
-            FTPLOG("Command failed with error %d\n", retval);
-            /* In case we get a list command (which creates a transfer socket, but is then rejected),
-             * or for any other reason, make sure to close a created but not used transfer socket.
-             */
-            (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
-            /* We do not break on a command parse failure, the printout is enough. */
-            retval = 0;
-        } else {
-            FTPLOG("Command handled successfully\n");
-        }
-    } else if ((retval == 0) && (bytes_read == 0)) {
-        /* Clean-up connection on disconnect, including server socket. */
-        FTPLOG("Client disconnected\n");
-        (void)VSFTPServerStop();
-    } else {
-        if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
-            /* No incoming data. */
-        } else {
-            FTPLOG("Socket read failed with error %d\n", errno);
-            (void)VSFTPServerStop();
-        }
-    }
-
-    return retval;
-}
-
 /*!
  * \brief Handle the next server iteration.
  * \details
@@ -278,7 +381,26 @@ int VSFTPServerHandler(void)
 
 int VSFTPServerClientDisconnect(void)
 {
-    return VSFTPServerStop();
+    FTPLOG("Disconnecting client\n");
+
+    /* We don't know in what state we currently are, just orderly shutdown and close everything. */
+    if (serverData.transferSock != -1) {
+        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
+        (void)shutdown(serverData.transferSock, SHUT_RDWR);
+        (void)close(serverData.transferSock);
+        serverData.transferSock = -1;
+    }
+
+    if (serverData.clientSock != -1) {
+        FTPLOG("Closing client socket %d\n", serverData.clientSock);
+        (void)shutdown(serverData.clientSock, SHUT_RDWR);
+        (void)close(serverData.clientSock);
+        serverData.clientSock = -1;
+    }
+
+    serverData.isConnected = false;
+
+    return 0;
 }
 
 int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
@@ -295,7 +417,7 @@ int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
         serverData.transfer.sin_addr.s_addr = INADDR_ANY;
         serverData.transfer.sin_port = htons(portNum);
         /* Create a new socket connection. */
-        retval = VSFTPServerCreatePassiveSocket(portNum, &serverData.transferSock, &serverData.transfer);
+        retval = CreatePassiveSocket(portNum, &serverData.transferSock, &serverData.transfer);
     }
 
     if (retval == 0) {
@@ -320,62 +442,6 @@ int VSFTPServerCloseTransferSocket(const int sock)
             (void)close(serverData.transferSock);
             serverData.transferSock = -1;
         }
-    }
-
-    return retval;
-}
-
-static int VSFTPServerCreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData)
-{
-    int retval = -1;
-    int option = 1;
-
-    /* Create the socket. */
-    *sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (*sock == -1) {
-        FTPLOG("Could not create socket on port %d\n", portNum);
-    } else {
-        retval = 0;
-    }
-
-    if (retval == 0) {
-        /* Change the socket to be non-blocking. */
-        retval = fcntl(*sock, F_SETFL, fcntl(*sock, F_GETFL, 0) | O_NONBLOCK);
-        if (retval != 0) {
-            FTPLOG("Socket fcntl failed with error %d\n", retval);
-        }
-    }
-
-    if (retval == 0) {
-        /* Change the socket options. */
-        retval = setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, (char *)&option, sizeof(option));
-        if (retval != 0) {
-            FTPLOG("Socket setsockopt failed with error %d\n", retval);
-        }
-    }
-
-    if (retval == 0) {
-        /* Bind to the socket. */
-        retval = bind(*sock, (struct sockaddr *)sockData, sizeof(*sockData));
-        if (retval != 0) {
-            FTPLOG("Socket binding failed with error %d\n", retval);
-        }
-    }
-
-    if (retval == 0) {
-        /* Mark the socket as a passive socket. */
-        retval = listen(*sock, 1);
-        if (retval != 0) {
-            FTPLOG("Socket listen failed with error %d\n", retval);
-        }
-    }
-
-    if (retval == 0) {
-        FTPLOG("Socket %d on port %d ready for connection...\n", *sock, portNum);
-    } else {
-        /* Just orderly shutdown and close the socket. */
-        (void)shutdown(*sock, SHUT_RDWR);
-        (void)close(*sock);
     }
 
     return retval;
@@ -434,7 +500,7 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
                 break;                      /* EOF */
             }
 
-            retval = VSFTPServerSendBinaryOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
+            retval = SendBinaryOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
             if (retval == -1) {
                 break;
             }
@@ -493,7 +559,7 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
 
     if (retval == 0) {
         if (size >= INET_ADDRSTRLEN) {
-            (void)strncpy(buf, serverData.vsftpConfigData.ipAddr, size);
+            (void)strncpy(buf, serverData.ipAddr, size);
             *len = strlen(buf);
         } else {
             retval = -1;
@@ -503,18 +569,84 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
     return retval;
 }
 
-int VSFTPServerGetServerRootPath(char *buf, const size_t size, size_t *len)
+int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPathLen)
 {
     int retval = -1;
 
-    if ((buf != NULL) && (size > 0)) {
+    /* Make sure the new path is not above the root path. */
+    if (absPathLen >= serverData.rootPathLen) {
         retval = 0;
     }
 
     if (retval == 0) {
-        if (size >= serverData.vsftpConfigData.rootPathLen) {
-            (void)strncpy(buf, serverData.vsftpConfigData.rootPath, size);
-            *len = strlen(buf);
+        for (unsigned long i = 0; i < serverData.rootPathLen; i++) {
+            if (serverData.rootPath[i] != absPath[i]) {
+                retval = -1;
+                break;
+            }
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerSetCwd(const char *dir, const size_t len)
+{
+    int retval = -1;
+    char realPath[PATH_LEN_MAX]; /* Local copy first. */
+    size_t realPathLen = 0;
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen = 0;
+
+    /* Checks are performed in callee. */
+
+    retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+
+    /* Get the absolute path. */
+    if (retval == 0) {
+        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, dir, len, realPath, sizeof(realPath), &realPathLen);
+    } else {
+        /* It could be that CWD has not yet been set, just pass it as NULL with length 0. */
+        retval = VSFTPFilesystemGetRealPath(NULL, 0, dir, len, realPath, sizeof(realPath), &realPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(realPath, realPathLen);
+    }
+
+    /* Make sure the new path is not above the root path. */
+    if (retval == 0) {
+        retval = VSFTPServerAbsPathIsNotAboveRootPath(realPath, realPathLen);
+    }
+
+    /* Set the new path. */
+    if (retval == 0) {
+        if (sizeof(serverData.cwd) > realPathLen) {
+            (void)strncpy(serverData.cwd, realPath, sizeof(serverData.cwd));
+            serverData.cwdLen = realPathLen;
+        } else {
+            retval = -1;
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerGetCwd(char *buf, const size_t size, size_t *len)
+{
+    int retval = -1;
+    int written = 0;
+
+    /* Check if CWD has been initialized and if the buffer is large enough to contain it. */
+    if ((buf != NULL) && (size > 0) && (len != NULL) &&
+        (serverData.cwdLen > 0) && (serverData.cwdLen < size)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        written = snprintf(buf, size, serverData.cwd, serverData.cwdLen);
+        if ((written >= 0) && ((size_t)written < size)) {
+            *len = (size_t)written;
         } else {
             retval = -1;
         }
@@ -590,34 +722,6 @@ int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t si
         if (write(sock, buf, len + written) == -1) {
             retval = -1;
         }
-    }
-
-    return retval;
-}
-
-int VSFTPServerSendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send)
-{
-    ssize_t lsend = 0;
-    int retval = -1;
-
-    lsend = write(sock, buf, size);
-    if (lsend > -1) {
-        *send = (size_t)lsend;
-        retval = 0;
-    }
-
-    return retval;
-}
-
-int VSFTPServerReceive(const int sock, char *buf, const size_t size, size_t *received)
-{
-    ssize_t bytesRead = 0;
-    int retval = -1;
-
-    bytesRead = read(sock, buf, size);
-    if (bytesRead != -1) {
-        *received = (size_t)bytesRead;
-        retval = 0;
     }
 
     return retval;
