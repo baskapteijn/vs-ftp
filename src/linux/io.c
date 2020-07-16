@@ -23,12 +23,13 @@ void FTPLog(const char *file, uint32_t line, const char *format, ...)
 {
     char time_buf[100];
     va_list args;
+    struct tm now;
+    const time_t now_seconds = time(NULL);
 
     /* Print to stdio. */
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
+    gmtime_r(&now_seconds, &now);
     sprintf(time_buf, "%d-%02d-%02d_%02d:%02d:%02d",
-            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+            now.tm_year + 1900, now.tm_mon + 1, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec);
     printf("%s %s[%u]: ", time_buf, file, line);
 
     va_start(args, format);
