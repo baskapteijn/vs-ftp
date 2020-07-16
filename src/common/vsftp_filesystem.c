@@ -86,19 +86,18 @@ int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, s
 
     if (retval == 0) {
         if (*cookie == NULL) {
-            //first call
+            /* Initial call. */
             d = opendir(path);
             if (d == NULL) {
                 retval = -1;
             }
         } else {
-            //continue with d
+            /* Continue with d. */
             d = *cookie;
         }
     }
 
     if (retval == 0) {
-        //continue
         if ((ldir = readdir(d)) != NULL) {
             if (prependDir == false) {
                 written = snprintf(buf, size, "%s", ldir->d_name);
