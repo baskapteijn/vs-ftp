@@ -1,15 +1,19 @@
-/* $Revision$ */
 /*
- *                          Copyright 2020                      
- *                         Green Hills Software                      
+ * This file is part of the vs-ftp distribution (https://github.com/baskapteijn/vs-ftp).
+ * Copyright (c) 2020 Bas Kapteijn.
  *
- *    This program is the property of Green Hills Software, its
- *    contents are proprietary information and no part of it is to be
- *    disclosed to anyone except employees of Green Hills Software,
- *    or as agreed in writing signed by the President of Green Hills
- *    Software.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
  *
- */
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 #ifndef CONFIG_H__
 #define CONFIG_H__
 
