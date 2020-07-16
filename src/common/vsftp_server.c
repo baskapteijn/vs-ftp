@@ -256,8 +256,9 @@ int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const 
     serverData.ipAddrLen = ipAddrLen;
     serverData.port = port;
 
-    retval = VSFTPFilesystemGetAbsPath(rootPath, rootPathLen, serverData.rootPath, sizeof(serverData.rootPath),
-                                       &serverData.rootPathLen);
+    retval = VSFTPFilesystemGetRealPath(NULL, 0, rootPath, rootPathLen, serverData.rootPath,
+                                        sizeof(serverData.rootPath),
+                                        &serverData.rootPathLen);
 
     if (retval == 0) {
         retval = VSFTPFilesystemIsDir(serverData.rootPath, serverData.rootPathLen);
@@ -592,27 +593,37 @@ int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPa
 int VSFTPServerSetCwd(const char *dir, const size_t len)
 {
     int retval = -1;
-    char absPath[PATH_LEN_MAX]; /* Local copy first. */
-    size_t absPathLen = 0;
+    char realPath[PATH_LEN_MAX]; /* Local copy first. */
+    size_t realPathLen = 0;
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen = 0;
 
     /* Checks are performed in callee. */
 
+    retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+
     /* Get the absolute path. */
-    retval = VSFTPFilesystemGetAbsPath(dir, len, absPath, sizeof(absPath), &absPathLen);
     if (retval == 0) {
-        retval = VSFTPFilesystemIsDir(absPath, absPathLen);
+        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, dir, len, realPath, sizeof(realPath), &realPathLen);
+    } else {
+        /* It could be that CWD has not yet been set, just pass it as NULL with length 0. */
+        retval = VSFTPFilesystemGetRealPath(NULL, 0, dir, len, realPath, sizeof(realPath), &realPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPFilesystemIsDir(realPath, realPathLen);
     }
 
     /* Make sure the new path is not above the root path. */
     if (retval == 0) {
-        retval = VSFTPServerAbsPathIsNotAboveRootPath(absPath, absPathLen);
+        retval = VSFTPServerAbsPathIsNotAboveRootPath(realPath, realPathLen);
     }
 
     /* Set the new path. */
     if (retval == 0) {
-        if (sizeof(serverData.cwd) > absPathLen) {
-            (void)strncpy(serverData.cwd, absPath, sizeof(serverData.cwd));
-            serverData.cwdLen = absPathLen;
+        if (sizeof(serverData.cwd) > realPathLen) {
+            (void)strncpy(serverData.cwd, realPath, sizeof(serverData.cwd));
+            serverData.cwdLen = realPathLen;
         } else {
             retval = -1;
         }

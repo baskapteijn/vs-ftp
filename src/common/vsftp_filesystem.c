@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "config.h"
-#include "vsftp_server.h"
 #include "vsftp_filesystem.h"
 
 static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
@@ -173,18 +172,19 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
     return retval;
 }
 
-int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen, char *absPath, const size_t size,
-                              size_t *absPathLen)
+int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
+                              char *realPath, const size_t size, size_t *realPathLen)
 {
     int retval = -1;
     char *p = NULL;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
+    char absPath[PATH_LEN_MAX];
+    size_t absPathLen = 0;
     size_t pLen = 0;
     const char *lpath = 0;
 
+    /* cwd and cwdLen are allowed to be 0, and otherwise ConcatCwdAndPath() will handle it. */
     if ((path != NULL) && (pathLen > 0) &&
-        (absPath != NULL) && (size > 0) && (absPathLen != NULL)) {
+        (realPath != NULL) && (size > 0) && (realPathLen != NULL)) {
         retval = 0;
     }
 
@@ -195,11 +195,10 @@ int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen, char *absP
             lpath = path;
         } else {
             /* It's relative. */
-            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);  //TODO: i dont like this here...
+            retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, sizeof(absPath), &absPathLen);
             if (retval == 0) {
-                retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, size, absPathLen);
+                lpath = absPath;
             }
-            lpath = absPath;
         }
 
         /* Pass NULL in `resolved_path`. If `realpath` resolves the path it will alloc a buffer (up to PATH_MAX size)
@@ -213,8 +212,8 @@ int VSFTPFilesystemGetAbsPath(const char *path, const size_t pathLen, char *absP
             if (p != NULL) {
                 pLen = strnlen(p, PATH_LEN_MAX);
                 if (size > pLen) {
-                    (void)strncpy(absPath, p, size);
-                    *absPathLen = pLen;
+                    (void)strncpy(realPath, p, size);
+                    *realPathLen = pLen;
                     retval = 0;
                 }
 
