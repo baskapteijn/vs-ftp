@@ -171,6 +171,27 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
     return retval;
 }
 
+/*!
+ * \brief Get the real path.
+ * \details
+ *      If 'path' is absolute, it will be converted to a real path (symbolic links will be resolved).
+ *      If 'path' is relative, it will try to make an absolute path from 'cwd' and 'path'.
+ * \param cwd
+ *      The current working directory.
+ * \param cwdLen
+ *      The length of 'cwd'.
+ * \param path
+ *      The path to get the real path from.
+ * \param pathLen
+ *      The length of 'path'.
+ * \param[out] realPath
+ *      A pointer to the storage location for the real path.
+ * \param size
+ *      The size of 'realPath'.
+ * \param[out] realPathLen
+ *      The length of 'realPath'.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
                               char *realPath, const size_t size, size_t *realPathLen)
 {
@@ -224,6 +245,19 @@ int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char 
     return retval;
 }
 
+/*!
+ * \brief Open a file.
+ * \param absPath
+ *      The absolute path to the file, including the filename.
+ *      This does not have to be a real path, symbolic links are automatically dereferenced.
+ * \param absPathLen
+ *      The length of 'absPath'.
+ * \param[out] fd
+ *      A pointer to the storage location for the file descriptor.
+ * \param size
+ *      The size of the opened file.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPFilesystemOpenFile(const char *absPath, const size_t absPathLen, int *fd, size_t *size)
 {
     int retval = -1;
@@ -253,9 +287,16 @@ int VSFTPFilesystemOpenFile(const char *absPath, const size_t absPathLen, int *f
     return retval;
 }
 
+/*!
+ * \brief Close a file.
+ * \param fd
+ *      The file descriptor.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPFilesystemCloseFile(const int fd)
 {
     /* Checks are performed in callee. */
 
     return close(fd);
 }
+

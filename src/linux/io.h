@@ -19,9 +19,8 @@
 
 #include "stdint.h"
 
-#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
-
-#define FTPLOG(format, ...)      FTPLog(__FILENAME__, __LINE__, format, ##__VA_ARGS__)
+#define __FILENAME__            (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+#define FTPLOG(format, ...)     FTPLog(__FILENAME__, __LINE__, format, ##__VA_ARGS__)
 
 extern void FTPLog(const char *file, uint32_t line, const char *format, ...);
 

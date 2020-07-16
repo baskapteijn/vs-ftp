@@ -44,3 +44,4 @@ static inline const char *GetVersionString(void)
 }
 
 #endif /* VERSION_H__ */
+

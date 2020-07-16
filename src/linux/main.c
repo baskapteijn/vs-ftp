@@ -229,8 +229,10 @@ int main(int argc, char *argv[])
             printf("Server stop failed with error %d\n\n", retval);
         }
     } else {
-        (void)VSFTPServerStop(); /* Do not overwrite the previous error code. */
+        /* Quit but do not overwrite the previous error code. */
+        (void)VSFTPServerStop();
     }
 
     return retval;
 }
+
