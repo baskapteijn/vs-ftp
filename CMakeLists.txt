@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.2.3)
 project(vs-ftp C)
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall -Wextra -Os -s")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -fprofile-arcs -ftest-coverage")
 
 set(COMMON_SRC_DIR src/common)
 set(LINUX_SRC_DIR src/linux)

@@ -237,7 +237,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
     if (retval == 0) {
         retval = VSFTPServerSendReply("226 Directory send OK.");
     } else {
-        retval = VSFTPServerSendReply("451 Requested action aborted: local error in processing.");
+        retval = VSFTPServerSendReply("550 Permission Denied.");
     }
 
     return retval;
@@ -290,7 +290,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     char cwd[PATH_LEN_MAX];
     size_t cwdLen = 0;
     bool isBinary = false;
-    const char *fileNotFound = "550 File not found.";
+    const char *fileNotFound = "551 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
     bool isFileError = false;
 
@@ -305,6 +305,9 @@ static int CommandHandlerRetr(const char *args, size_t len)
 
     if (retval == 0) {
         retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+        if (retval != 0) {
+            isFileError = true;
+        }
     }
 
     if (retval == 0) {

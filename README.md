@@ -1,4 +1,8 @@
 # vs-ftp
+# Numconvert
+[![Build Status](https://travis-ci.org/baskapteijn/vs-ftp.svg?branch=master)](https://travis-ci.org/baskapteijn/vs-ftp)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/baskapteijn/vs-ftp.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/baskapteijn/vs-ftp/alerts/)
+[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/baskapteijn/vs-ftp.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/baskapteijn/vs-ftp/context:cpp)  
 A Very Small FTP Server focused on simplicity and portability.
 
 ## Project mission statement

@@ -1,0 +1,37 @@
+language: c
+compiler: gcc
+sudo: false
+
+addons:
+  apt:
+    sources:
+      - george-edison55-precise-backports
+    packages:
+      - cmake-data
+      - cmake
+      - lcov
+      - valgrind
+      - mingw-w64
+
+script:
+  - cd build/
+  - cmake -D CMAKE_BUILD_TYPE=Release ..
+  - make
+  #- cd ../profiling
+  #- ./memcheck.sh 42
+  #- ./memcheck.sh 0x42
+  #- ./memcheck.sh 42h
+  #- ./memcheck.sh 101010b
+  #- cd ../test/functional/
+  #- ./functional_test.sh
+  - cd ../coverage/
+  - ./coverage.sh
+
+deploy:
+  provider: releases
+  api_key: $GITHUB_API_KEY
+  file:
+    - vs-ftp
+  skip_cleanup: true
+  on:
+    tags: true
