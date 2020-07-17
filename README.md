@@ -81,9 +81,9 @@ Processing file linux/main.c
 Processing file linux/version.h
 Writing directory view page.
 Overall coverage rate:
-  lines......: 90.8% (675 of 743 lines)
+  lines......: 91.4% (679 of 743 lines)
   functions..: 100.0% (54 of 54 functions)
-  branches...: 61.7% (300 of 486 branches)
+  branches...: 62.8% (305 of 486 branches)
 Script completed.
 ```
 The default browser will automatically display the results.
