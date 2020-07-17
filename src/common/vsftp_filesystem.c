@@ -30,6 +30,24 @@ static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, si
                             char *concatPath, size_t size, size_t *concatPathLen);
 static int IsAbsPath(const char *path);
 
+/*!
+ * \brief Concatenate 'cwd' and 'path'.
+ * \param cwd
+ *      The current working directory.
+ * \param cwdLen
+ *      The length of 'cwd'.
+ * \param path
+ *      The (relative) path to concatenate.
+ * \param pathLen
+ *      The length of 'path'.
+ * \param[out] concatPath
+ *      A pointer to the storage location for the concatenated path.
+ * \param size
+ *      The size of 'concatPath'.
+ * \param[out] concatPathLen
+ *      A pointer to the storage location for the length of 'concatPath'.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
                             char *concatPath, const size_t size, size_t *concatPathLen)
 {
@@ -49,6 +67,12 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     return retval;
 }
 
+/*!
+ * \brief Check if the given path is an absolute path.
+ * \param path
+ *      The path to check.
+ * \returns 0 in case it is an absolute path or -1 in case it isn't.
+ */
 static int IsAbsPath(const char *path)
 {
     int retval = -1;
@@ -62,6 +86,27 @@ static int IsAbsPath(const char *path)
     return retval;
 }
 
+/*!
+ * \brief Get the files and directories of a directory.
+ * \details
+ *      Each file/directory is returned as a single string.
+ *      This function can be used to iterate through the directory until all files/directories have been passed.
+ * \param path
+ *      The path to the directory to list.
+ * \param pathLen
+ *      The length of 'path'.
+ * \param[out] buf
+ *      A pointer to the storage location for a file/directory listing.
+ * \param size
+ *      The size of 'buf'.
+ * \param[out] bufLen
+ *      A pointer to the storage locatoin for the length of 'buf'.
+ * \param prependDir
+ *      A boolean indicating if the returned file/directory listing should be prepended with 'path'.
+ * \param[in,out] cookie
+ *      A pointer to a pointer to a storage location indicating where in the directory listing we were.
+ * \returns 0 in case of successful (partial) completion or any other value in case of an error.
+ */
 int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
                                   bool prependDir, void **cookie)
 {
@@ -121,6 +166,14 @@ int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, s
     return retval;
 }
 
+/*!
+ * \brief Check if the given path is a path to a directory.
+ * \param dir
+ *      The path to check.
+ * \param dirLen
+ *      The length of 'dir'.
+ * \returns 0 in case it is a directory or -1 in case it isn't.
+ */
 int VSFTPFilesystemIsDir(const char *dir, const size_t dirLen)
 {
     int retval = -1;
@@ -141,6 +194,14 @@ int VSFTPFilesystemIsDir(const char *dir, const size_t dirLen)
     return retval;
 }
 
+/*!
+ * \brief Check if the given path is a path to a file.
+ * \param file
+ *      The path to check.
+ * \param fileLen
+ *      The length of 'file'.
+ * \returns 0 in case it is a file or -1 in case it isn't.
+ */
 int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
 {
     int retval = -1;
