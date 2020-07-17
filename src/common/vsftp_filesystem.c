@@ -28,7 +28,7 @@
 
 static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
                             char *concatPath, size_t size, size_t *concatPathLen);
-static int IsAbsPath(const char *path, size_t pathLen);
+static int IsAbsPath(const char *path);
 
 static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
                             char *concatPath, const size_t size, size_t *concatPathLen)
@@ -49,7 +49,7 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     return retval;
 }
 
-static int IsAbsPath(const char *path, const size_t pathLen)
+static int IsAbsPath(const char *path)
 {
     int retval = -1;
 
@@ -199,7 +199,7 @@ int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char 
     }
 
     if (retval == 0) {
-        retval = IsAbsPath(path, pathLen);
+        retval = IsAbsPath(path);
         if (retval == 0) {
             /* It's absolute. */
             lpath = path;
