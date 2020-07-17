@@ -22,7 +22,7 @@ extern int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char 
 extern int VSFTPFilesystemIsDir(const char *dir, size_t dirLen);
 extern int VSFTPFilesystemIsFile(const char *file, size_t fileLen);
 extern int VSFTPFilesystemGetRealPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
-                                       char *realPath, size_t size, size_t *realPathLen);
+                                      char *realPath, size_t size, size_t *realPathLen);
 extern int VSFTPFilesystemOpenFile(const char *absPath, size_t absPathLen, int *fd, size_t *size);
 extern int VSFTPFilesystemCloseFile(int fd);
 

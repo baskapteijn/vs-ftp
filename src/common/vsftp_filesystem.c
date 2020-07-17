@@ -36,20 +36,14 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
     int retval = -1;
     int written = 0;
 
-    if ((cwd != NULL) && (cwdLen > 0) &&
-        (path != NULL) && (pathLen > 0) &&
-        (concatPath != NULL) && (size > 0) && (concatPathLen != 0)) {
-        retval = 0;
-    }
-    
-    if (retval == 0) {
-        if ((cwdLen + pathLen) < size) {
-            written = snprintf(concatPath, size, "%s/%s", cwd, path);
-            if ((written >= 0) && ((size_t)written < size)) {
-                *concatPathLen = (size_t)written;
-                retval = 0;
-            } /* Else: buf too small to contain dir path. */
-        }
+    /* Argument checks are performed by the caller. */
+
+    if ((cwdLen + pathLen) < size) {
+        written = snprintf(concatPath, size, "%s/%s", cwd, path);
+        if ((written >= 0) && ((size_t)written < size)) {
+            *concatPathLen = (size_t)written;
+            retval = 0;
+        } /* Else: buf too small to contain dir path. */
     }
 
     return retval;
@@ -59,14 +53,10 @@ static int IsAbsPath(const char *path, const size_t pathLen)
 {
     int retval = -1;
 
-    if ((path != NULL) && (pathLen > 0)) {
-        retval = 0;
-    }
+    /* Argument checks are performed by the caller. */
 
-    if (retval == 0) {
-        if (path[0] != '/') {
-            retval = -1;
-        }
+    if (path[0] == '/') {
+        retval = 0;
     }
 
     return retval;
@@ -193,7 +183,7 @@ int VSFTPFilesystemIsFile(const char *file, const size_t fileLen)
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
 int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char *path, const size_t pathLen,
-                              char *realPath, const size_t size, size_t *realPathLen)
+                               char *realPath, const size_t size, size_t *realPathLen)
 {
     int retval = -1;
     char *p = NULL;
@@ -202,7 +192,7 @@ int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char 
     size_t pLen = 0;
     const char *lpath = 0;
 
-    /* cwd and cwdLen are allowed to be 0, and otherwise ConcatCwdAndPath() will handle it. */
+    /* cwd and cwdLen are allowed to be 0, only check them if a call to ConcatCwdAndPath() is required. */
     if ((path != NULL) && (pathLen > 0) &&
         (realPath != NULL) && (size > 0) && (realPathLen != NULL)) {
         retval = 0;
@@ -214,10 +204,12 @@ int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char 
             /* It's absolute. */
             lpath = path;
         } else {
-            /* It's relative. */
-            retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, sizeof(absPath), &absPathLen);
-            if (retval == 0) {
-                lpath = absPath;
+            if ((cwd != NULL) && (cwdLen > 0)) {
+                /* It's relative. */
+                retval = ConcatCwdAndPath(cwd, cwdLen, path, pathLen, absPath, sizeof(absPath), &absPathLen);
+                if (retval == 0) {
+                    lpath = absPath;
+                }
             }
         }
 
