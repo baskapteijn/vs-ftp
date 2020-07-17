@@ -50,20 +50,27 @@ rc=$?; if [[ $rc != 0 ]]; then exit_on_error $rc; fi
     # Perform a `CWD ..` command (which should fail because it's above the root path)
     lftp -u anon,@ -p2021 127.0.0.1 -e "nlist;bye"
 
-    # Create and retrieve an existing file
+    # Create a binary file and retrieve it (binary mode)
     dd if=/dev/urandom of=/tmp/file.bin bs=1024 count=1024
     wget ftp://127.0.0.1:2021//tmp/file.bin
 
     # Try to retrieve a non-existing file
     wget ftp://127.0.0.1:2021//tmp/not_existing_file.bin
 
+    # Try to retrieve a directory
+    lftp -p2021 127.0.0.1 -e "get .;bye"
+
     # Get the remote HELP, ascii mode and binary mode through pftp with a 'here-document', lftp cannot do it.
     # Note that each line in the here-document cannot be preceded by a space (tabs do not seem to work either).
+    # Also not we are trying to retrieve a file in ASCII mode here
+    echo text > /tmp/text_new.txt
 pftp 127.0.0.1 2021 <<HERE
 anonymous
 rhelp
 ascii
 binary
+ascii
+get text_new.txt
 quit
 HERE
 
