@@ -66,7 +66,8 @@ The coverage script will run a predefined set of tests to get as much coverage a
 From the coverage directory:
 
 ```bash
-$ ./coverage.sh 
+$ ./coverage.sh
+...
 Reading data file coverage.info
 Found 6 entries.
 Found common filename prefix "/src/vs-ftp/src"
