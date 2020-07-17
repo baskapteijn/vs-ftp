@@ -62,6 +62,13 @@ static int HandleConnection(void);
 static int SendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
 static int Receive(int sock, char *buf, size_t size, size_t *received);
 
+/*!
+ * \brief Strip the Carriage Return and Newline from a string.
+ * \param[in,out] buf
+ *      The buffer containing the string the check/strip.
+ * \param[in,out] len
+ *      The length of the string in the buffer on entry and exit.
+ */
 static void StripCRAndNewline(char *buf, size_t *len)
 {
     /* Argument checks are performed by the caller. */
@@ -76,6 +83,18 @@ static void StripCRAndNewline(char *buf, size_t *len)
     }
 }
 
+/*!
+ * \brief Create a passive socket.
+ * \details
+ *      Passive, blocking, re-using port.
+ * \param portNum
+ *      The port number to create a socket with.
+ * \param[out] sock
+ *      A pointer to the storage location for the created socket.
+ * \param sockData
+ *      A pointer to information for binding the socket.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData)
 {
     int retval = -1;
@@ -134,6 +153,12 @@ static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockadd
     return retval;
 }
 
+/*!
+ * \brief Wait for a client connection.
+ * \details
+ *      This is a synchronous call.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 static int WaitForIncomingConnection(void)
 {
     int c = 0;
@@ -169,6 +194,12 @@ static int WaitForIncomingConnection(void)
     return retval;
 }
 
+/*!
+ * \brief Handle commands on an active client connection.
+ * \details
+ *      This is a synchronous call.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 static int HandleConnection(void)
 {
     int retval = -1;
@@ -249,9 +280,18 @@ static int Receive(const int sock, char *buf, const size_t size, size_t *receive
 /*!
  * \brief Initialize the VS-FTP server.
  * \details
- *      Initializes the Server with configuration data.
- * \param vsftpConfigData
- *      A pointer to the VS-FTP configuration data.
+ *      Initializes the Server with configuration data received from the caller.
+ * \param rootPath
+ *      The root path to start the FTP server with.
+ *      The server will not allow any path to be accessed above/before it.
+ * \param rootPathLen
+ *      The length of 'rootPath'.
+ * \param ipAddr
+ *      The IP-Address to start a client listen socket on.
+ * \param ipAddrLen
+ *      The length of 'ipAddr'.
+ * \param port
+ *      The port to start a client listen socket on.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
 int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const char *ipAddr, const size_t ipAddrLen,
@@ -366,13 +406,13 @@ int VSFTPServerStop(void)
  *
  *      When connected:
  *      - Check for a (newly) received command.
- *
- *      And optionally:
- *
  *      - Handle a received command.
- *      - Continue a transmission part.
+ *      - Repeat.
+ *      - Handle closing a connection.
  *
- *      This function shall return swiftly as to allow the user to do tasks in between.
+ *      This function blocks waiting on a client connection or client data.
+ *      Each action (connection, data reception, disconnection) this function
+ *      will loop back to the caller.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
 int VSFTPServerHandler(void)
@@ -395,6 +435,10 @@ int VSFTPServerHandler(void)
     return retval;
 }
 
+/*!
+ * \brief Disconnect a client or clean up a partial disconnection.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPServerClientDisconnect(void)
 {
     FTPLOG("Disconnecting client\n");
