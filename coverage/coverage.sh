@@ -10,6 +10,15 @@ exit_on_error()
     exit $arg1
 }
 
+# Print some package versions
+{
+    cmake --version
+    gcc -v
+    lftp -v
+    lcov --version
+    # unclear how to get the version of 'ftp'
+}
+
 # Compile the program with coverage options (i.e. debug)
 {
     cd ..

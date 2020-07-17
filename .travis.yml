@@ -2,16 +2,17 @@ language: c
 compiler: gcc
 sudo: false
 
+dist: bionic
 addons:
   apt:
-    sources:
-      - george-edison55-precise-backports
+    update: true
     packages:
       - cmake-data
       - cmake
       - lcov
       - valgrind
-      - mingw-w64
+      - ftp
+      - lftp
 
 script:
   - cd build/
