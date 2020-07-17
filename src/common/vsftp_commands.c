@@ -96,14 +96,11 @@ static int CommandHandlerUser(const char *args, size_t len)
 
 static int CommandHandlerSyst(const char *args, size_t len)
 {
-    int retval = -1;
-
+    /* args and len not used. */
     (void)args;
     (void)len;
 
-    retval = VSFTPServerSendReply("215 UNIX Type: L8");
-
-    return retval;
+    return VSFTPServerSendReply("215 UNIX Type: L8");
 }
 
 static int CommandHandlerPasv(const char *args, size_t len)
@@ -267,7 +264,9 @@ static int CommandHandlerCwd(const char *args, size_t len)
 {
     int retval = -1;
 
-    if ((args != NULL) && (len > 0)) {
+    /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
+
+    if (len > 0) {
         retval = VSFTPServerSetCwd(args, len);
     }
 
@@ -294,7 +293,9 @@ static int CommandHandlerRetr(const char *args, size_t len)
     const char *localError = "451 Requested action aborted: Local error in processing.";
     bool isFileError = false;
 
-    if ((args != NULL) && (len > 0)) {
+    /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
+
+    if (len > 0) {
         /* Get socket. */
         retval = VSFTPServerGetTransferSocket(&pasv_server_sock);
     }
@@ -361,7 +362,9 @@ static int CommandHandlerSize(const char *args, size_t len)
     const char *localError = "451 Requested action aborted: Local error in processing.";
     bool isFileError = false;
 
-    if ((args != NULL) && (len > 0)) {
+    /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
+
+    if (len > 0) {
         retval = 0;
     }
 
