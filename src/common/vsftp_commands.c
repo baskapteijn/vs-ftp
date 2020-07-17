@@ -388,7 +388,7 @@ static int CommandHandlerSize(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSendReply("213 %llu\r\n", (unsigned long long int)filestats.st_size);
+        retval = VSFTPServerSendReply("213 %llu", (unsigned long long int)filestats.st_size);
     } else {
         retval = VSFTPServerSendReply(isFileError == true ? fileNotFound : localError);
     }
