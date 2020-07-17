@@ -64,6 +64,8 @@ static int Receive(int sock, char *buf, size_t size, size_t *received);
 
 static void StripCRAndNewline(char *buf, size_t *len)
 {
+    /* Argument checks are performed by the caller. */
+
     for (unsigned long i = 0; i < *len; i++) {
         if ((buf[i] == '\r') ||
             (buf[i] == '\n')) {
@@ -78,6 +80,8 @@ static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockadd
 {
     int retval = -1;
     int option = 1;
+
+    /* Argument checks are performed by the caller. */
 
     /* Create the socket. */
     *sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -135,6 +139,8 @@ static int WaitForIncomingConnection(void)
     int c = 0;
     int retval = 0;
 
+    /* Argument checks are performed by the caller. */
+
     /* Poll for an incoming connection and accept it when there is 1. */
     c = sizeof(struct sockaddr_in);
     serverData.clientSock = accept(serverData.serverSock,
@@ -169,6 +175,8 @@ static int HandleConnection(void)
     /* Polling read commands from client. */
     size_t bytes_read = 0;
     char buffer[REQUEST_LEN_MAX];
+
+    /* Argument checks are performed by the caller. */
 
     retval = Receive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
 
@@ -213,6 +221,8 @@ static int SendBinaryOwnSock(const int sock, const char *buf, const size_t size,
     ssize_t lsend = 0;
     int retval = -1;
 
+    /* Argument checks are performed by the caller. */
+
     lsend = write(sock, buf, size);
     if (lsend > -1) {
         *send = (size_t)lsend;
@@ -251,14 +261,20 @@ int VSFTPServerInitialize(const char *rootPath, const size_t rootPathLen, const 
 
     FTPLOG("Initializing server\n");
 
-    /* Copy server configuration data. */
-    (void)strncpy(serverData.ipAddr, ipAddr, sizeof(serverData.ipAddr));
-    serverData.ipAddrLen = ipAddrLen;
-    serverData.port = port;
+    if ((rootPath != NULL) && (rootPathLen > 0) && (ipAddr != NULL) && (ipAddrLen > 0)) {
+        retval = 0;
+    }
 
-    retval = VSFTPFilesystemGetRealPath(NULL, 0, rootPath, rootPathLen, serverData.rootPath,
-                                        sizeof(serverData.rootPath),
-                                        &serverData.rootPathLen);
+    if (retval == 0) {
+        /* Copy server configuration data. */
+        (void)strncpy(serverData.ipAddr, ipAddr, sizeof(serverData.ipAddr));
+        serverData.ipAddrLen = ipAddrLen;
+        serverData.port = port;
+
+        retval = VSFTPFilesystemGetRealPath(NULL, 0, rootPath, rootPathLen, serverData.rootPath,
+                                            sizeof(serverData.rootPath),
+                                            &serverData.rootPathLen);
+    }
 
     if (retval == 0) {
         retval = VSFTPFilesystemIsDir(serverData.rootPath, serverData.rootPathLen);
@@ -407,7 +423,7 @@ int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
 {
     int retval = -1;
 
-    if (serverData.transferSock == -1) {
+    if ((sock != NULL) && (serverData.transferSock == -1)) {
         retval = 0;
     } /* Else already created. */
 
@@ -431,18 +447,20 @@ int VSFTPServerCloseTransferSocket(const int sock)
 {
     int retval = -1;
 
-    if (sock >= 0) {
+    if (sock == serverData.transferSock) {
         retval = 0;
-    } /* Else already closed. */
+    }
 
     if (retval == 0) {
-        if (sock == serverData.transferSock) {
-            FTPLOG("Closing transfer socket %d\n", sock);
-            (void)shutdown(serverData.transferSock, SHUT_RDWR);
-            (void)close(serverData.transferSock);
-            serverData.transferSock = -1;
-        }
+        FTPLOG("Closing transfer socket %d\n", sock);
+        retval = shutdown(serverData.transferSock, SHUT_RDWR);
     }
+
+    if (retval == 0) {
+        retval = close(serverData.transferSock);
+    }
+
+    serverData.transferSock = -1;
 
     return retval;
 }
@@ -467,11 +485,17 @@ int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock)
     int lsock = -1;
     int retval = -1;
 
-    addrlen = sizeof(client_address);
-    lsock = accept(sock, (struct sockaddr *)&client_address, &addrlen);
-    if (lsock >= 0) {
-        *con_sock = lsock;
+    if (con_sock != NULL) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        addrlen = sizeof(client_address);
+        lsock = accept(sock, (struct sockaddr *)&client_address, &addrlen);
+        if (lsock >= 0) {
+            *con_sock = lsock;
+            retval = 0;
+        }
     }
 
     return retval;
@@ -486,6 +510,8 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
     size_t count = 0;
     int fd = -1;
     int retval = -1;
+
+    /* Arguments checked by callees. */
 
     retval = VSFTPFilesystemOpenFile(pathTofile, len, &fd, &count);
     if (retval == 0) {
@@ -553,17 +579,13 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
 {
     int retval = -1;
 
-    if ((buf != NULL) && (size > 0)) {
+    if ((buf != NULL) && (size >= INET_ADDRSTRLEN) && (len != NULL)) {
         retval = 0;
     }
 
     if (retval == 0) {
-        if (size >= INET_ADDRSTRLEN) {
-            (void)strncpy(buf, serverData.ipAddr, size);
-            *len = strlen(buf);
-        } else {
-            retval = -1;
-        }
+        (void)strncpy(buf, serverData.ipAddr, size);
+        *len = strlen(buf);
     }
 
     return retval;
@@ -573,9 +595,15 @@ int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPa
 {
     int retval = -1;
 
-    /* Make sure the new path is not above the root path. */
-    if (absPathLen >= serverData.rootPathLen) {
+    if ((absPath != NULL) && (absPathLen > 0)) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        /* Make sure the new path is not above the root path. */
+        if (absPathLen < serverData.rootPathLen) {
+            retval = -1;
+        }
     }
 
     if (retval == 0) {
@@ -598,7 +626,7 @@ int VSFTPServerSetCwd(const char *dir, const size_t len)
     char cwd[PATH_LEN_MAX];
     size_t cwdLen = 0;
 
-    /* Checks are performed in callee. */
+    /* Checks are performed in callees. */
 
     retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
 
@@ -662,12 +690,18 @@ int VSFTPServerSendReply(const char *__restrict format, ...)
     int retval = -1;
     va_list ap;
 
-    /* Write reply to buffer. */
-    va_start(ap, format);
-    written = vsnprintf(buf, sizeof(buf), format, ap);
-    va_end(ap);
-    if ((written >= 0) && ((size_t)written < sizeof(buf))) {
+    if (format != NULL) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        /* Write reply to buffer. */
+        va_start(ap, format);
+        written = vsnprintf(buf, sizeof(buf), format, ap);
+        va_end(ap);
+        if ((written < 0) || ((size_t)written >= sizeof(buf))) {
+            retval = -1;
+        }
     }
 
     /* Append \r\n. */
@@ -692,10 +726,16 @@ int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len)
     int written = 0;
     int retval = -1;
 
-    /* Append \r\n. */
-    written = snprintf(&buf[len], size - len, "\r\n");
-    if ((written >= 0) && ((size_t)written < size)) {
+    if ((buf != NULL) && (size > 0) && (len > 0)) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        /* Append \r\n. */
+        written = snprintf(&buf[len], size - len, "\r\n");
+        if ((written >= 0) && ((size_t)written < size)) {
+            retval = 0;
+        }
     }
 
     if (retval == 0) {
@@ -712,10 +752,18 @@ int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t si
     int written = 0;
     int retval = -1;
 
-    /* Append \r\n. */
-    written = snprintf(&buf[len], size - len, "\r\n");
-    if ((written >= 0) && ((size_t)written < size)) {
+    /* No need to check 'sock', this is handled by write(). */
+
+    if ((buf != NULL) && (size > 0) && (len > 0)) {
         retval = 0;
+    }
+
+    if (retval == 0) {
+        /* Append \r\n. */
+        written = snprintf(&buf[len], size - len, "\r\n");
+        if ((written >= 0) && ((size_t)written < size)) {
+            retval = 0;
+        }
     }
 
     if (retval == 0) {
