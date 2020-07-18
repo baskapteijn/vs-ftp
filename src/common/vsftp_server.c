@@ -662,6 +662,42 @@ int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPa
     return retval;
 }
 
+int VSFTPServerServerPathToRealPath(const char *serverPath, const size_t serverPathLen, char *realPath,
+                                    const size_t size, size_t *realPathLen)
+{
+    int retval = -1;
+
+    return retval;
+}
+
+int VSFTPServerRealPathToServerPath(const char *realPath, const size_t realPathLen, char *serverPath,
+                                    const size_t size, size_t *serverPathLen)
+{
+    int retval = -1;
+
+    if ((realPath != NULL) && (realPathLen > 0) && (serverPath != NULL) && (size > 0) && (serverPathLen != NULL)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        serverPath[0] = '/';
+        serverPath[1] = '\0';
+        *serverPathLen = 1;
+
+        for (int i = 0; i < realPathLen; i++) {
+            if (realPath[i] == serverData.rootPath[i]) {
+                continue;
+            } else {
+                (void)strncpy(serverPath, &realPath[i], size);
+                *serverPathLen = strlen(serverPath);
+                break;
+            }
+        }
+    }
+
+    return retval;
+}
+
 int VSFTPServerSetCwd(const char *dir, const size_t len)
 {
     int retval = -1;

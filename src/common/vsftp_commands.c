@@ -243,7 +243,9 @@ static int CommandHandlerNlst(const char *args, size_t len)
 static int CommandHandlerPwd(const char *args, size_t len)
 {
     char cwd[PATH_LEN_MAX];
+    char serverPath[PATH_LEN_MAX];
     size_t cwdLen = 0;
+    size_t serverPathLen = 0;
     int retval = -1;
 
     /* args and len not used. */
@@ -251,8 +253,14 @@ static int CommandHandlerPwd(const char *args, size_t len)
     (void)len;
 
     retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+
+    /* Remove the root path from the CWD. */
     if (retval == 0) {
-        retval = VSFTPServerSendReply("257 \"%s\"", cwd);
+        retval = VSFTPServerRealPathToServerPath(cwd, cwdLen, serverPath, sizeof(serverPath), &serverPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSendReply("257 \"%s\"", serverPath);
     } else {
         retval = VSFTPServerSendReply("550 Failed to get directory.");
     }
