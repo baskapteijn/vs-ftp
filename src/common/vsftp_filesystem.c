@@ -28,7 +28,6 @@
 
 static int ConcatCwdAndPath(const char *cwd, size_t cwdLen, const char *path, size_t pathLen,
                             char *concatPath, size_t size, size_t *concatPathLen);
-static int IsAbsPath(const char *path);
 
 /*!
  * \brief Concatenate 'cwd' and 'path'.
@@ -73,7 +72,7 @@ static int ConcatCwdAndPath(const char *cwd, const size_t cwdLen, const char *pa
  *      The path to check.
  * \returns 0 in case it is an absolute path or -1 in case it isn't.
  */
-static int IsAbsPath(const char *path)
+int VSFTPFilesystemIsAbsPath(const char *path)
 {
     int retval = -1;
 
@@ -260,7 +259,7 @@ int VSFTPFilesystemGetRealPath(const char *cwd, const size_t cwdLen, const char 
     }
 
     if (retval == 0) {
-        retval = IsAbsPath(path);
+        retval = VSFTPFilesystemIsAbsPath(path);
         if (retval == 0) {
             /* It's absolute. */
             lpath = path;

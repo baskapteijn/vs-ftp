@@ -284,11 +284,17 @@ static int CommandHandlerPwd(const char *args, size_t len)
 static int CommandHandlerCwd(const char *args, size_t len)
 {
     int retval = -1;
+    char realPath[PATH_LEN_MAX];
+    size_t realPathLen = 0;
 
     /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
 
     if (len > 0) {
-        retval = VSFTPServerSetCwd(args, len);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSetCwd(realPath, realPathLen);
     }
 
     if (retval == 0) {
