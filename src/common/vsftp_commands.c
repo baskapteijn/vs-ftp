@@ -168,6 +168,8 @@ static int CommandHandlerNlst(const char *args, size_t len)
     size_t realPathLen = 0;
     char cwd[PATH_LEN_MAX];
     size_t cwdLen = 0;
+    char serverPath[PATH_LEN_MAX];
+    size_t serverPathLen = 0;
     void *d = NULL;
     const char *lpath = 0;
     size_t llen = 0;
@@ -221,7 +223,18 @@ static int CommandHandlerNlst(const char *args, size_t len)
                 break;
             }
 
-            retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+            /* Remove the root path from the CWD. */
+            if (len != 0) {
+                retval = VSFTPServerRealPathToServerPath(buf, sizeof(buf), serverPath, sizeof(serverPath),
+                                                         &serverPathLen);
+                if (retval == 0) {
+                    retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, serverPath, sizeof(serverPath),
+                                                               serverPathLen);
+                }
+            } else {
+                retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+            }
+
             if (retval != 0) {
                 break;
             }
