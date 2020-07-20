@@ -189,7 +189,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
 
         if (len != 0) {
             /* Get requested dir. */
-            retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+            retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
 
             if (retval == 0) {
                 retval = VSFTPFilesystemIsDir(realPath, realPathLen);
@@ -313,8 +313,6 @@ static int CommandHandlerRetr(const char *args, size_t len)
     int pasv_server_sock = -1;
     char realPath[PATH_LEN_MAX];
     size_t realPathLen = 0;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
     bool isBinary = false;
     const char *fileNotFound = "551 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
@@ -328,11 +326,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
         if (retval != 0) {
             isFileError = true;
         }
@@ -382,8 +376,6 @@ static int CommandHandlerSize(const char *args, size_t len)
     int retval = -1;
     char realPath[PATH_LEN_MAX];
     size_t realPathLen = 0;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
     struct stat filestats;
     const char *fileNotFound = "550 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
@@ -396,11 +388,10 @@ static int CommandHandlerSize(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
+        if (retval != 0) {
+            isFileError = true;
+        }
     }
 
     if (retval == 0) {
