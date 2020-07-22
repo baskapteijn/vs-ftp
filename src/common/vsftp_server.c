@@ -55,33 +55,11 @@ typedef struct {
 
 static vsftpServerData_s serverData;
 
-static void StripCRAndNewline(char *buf, size_t *len);
 static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
 static int WaitForIncomingConnection(void);
 static int HandleConnection(void);
 static int SendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
 static int Receive(int sock, char *buf, size_t size, size_t *received);
-
-/*!
- * \brief Strip the Carriage Return and Newline from a string.
- * \param[in,out] buf
- *      The buffer containing the string the check/strip.
- * \param[in,out] len
- *      The length of the string in the buffer on entry and exit.
- */
-static void StripCRAndNewline(char *buf, size_t *len)
-{
-    /* Argument checks are performed by the caller. */
-
-    for (unsigned long i = 0; i < *len; i++) {
-        if ((buf[i] == '\r') ||
-            (buf[i] == '\n')) {
-            buf[i] = '\0';
-            *len = i;
-            break;
-        }
-    }
-}
 
 /*!
  * \brief Create a passive socket.
@@ -213,11 +191,12 @@ static int HandleConnection(void)
 
     /* Terminate the buffer. */
     buffer[bytes_read] = '\0';
-    if ((retval == 0) && (bytes_read > 0)) {
-        StripCRAndNewline(buffer, &bytes_read);
+    if ((retval == 0) && (bytes_read > 2) && (strncmp(&buffer[bytes_read - 2], "\r\n", 2) == 0)) {
         FTPLOG("Received command from client: %s\n", buffer);
 
         /* Handle the command, we currently ignore errors. */
+        buffer[bytes_read - 2] = '\0';
+        bytes_read -= 2;
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
             FTPLOG("Command failed with error %d\n", retval);
