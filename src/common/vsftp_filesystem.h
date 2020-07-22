@@ -17,6 +17,8 @@
 #ifndef VSFTP_FILESYSTEM_H__
 #define VSFTP_FILESYSTEM_H__
 
+#include <stdbool.h>
+
 extern int VSFTPFilesystemIsAbsPath(const char *path);
 extern int VSFTPFilesystemListDirPerLine(const char *path, size_t pathLen, char *buf, size_t size, size_t *bufLen,
                                          bool prependDir, void **cookie);

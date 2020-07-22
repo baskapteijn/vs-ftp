@@ -1,0 +1,15 @@
+/*!
+ *  @mainpage VS-FTP
+ *
+ *  @section intro_sec Introduction
+ *
+ *  A Very Small FTP Server focused on simplicity and portability.
+ *
+ *  @section author Author
+ *
+ *  Bas Kapteijn
+ *
+ *  @section license License
+ *
+ *  GPL-3.0 License
+ */
