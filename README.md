@@ -21,6 +21,11 @@ This readme assumes a Linux based host machine.
 * [CMake](https://cmake.org/) 3.7.2 or higher
 * [GNU](https://gcc.gnu.org/) 6.3.0 C compiler or compatible
 
+### For doxygen
+
+* [Doxygen](http://www.doxygen.nl/) 1.8.11 or compatible
+* [Doxywizard](http://www.doxygen.nl/manual/doxywizard_usage.html) 1.8.11 or compatible
+
 ### For coverage
 
 * [LCOV](http://ltp.sourceforge.net/coverage/lcov.php) 1.13 or compatible
@@ -55,6 +60,21 @@ To switch to a Debug build you can specify the following option in the CMake com
 $ cmake -D CMAKE_BUILD_TYPE=Debug ..
 $ make
 ```
+
+## Doxygen
+
+Doxygen generation with the bash script has only been tested on a Linux based host machine.  
+Make sure that the doxygen.sh has execute permission.
+
+The doxygen script will generate the doxygen documentation.
+
+From the doxygen directory:
+
+```bash
+$ ./doxygen.sh
+Script completed.
+```
+The default browser will automatically display the results.
 
 ## Coverage
 
