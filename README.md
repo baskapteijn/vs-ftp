@@ -31,7 +31,7 @@ From the build directory:
 ```bash
 $ cd build
 $ cmake -D CMAKE_BUILD_TYPE=Release ..
--- The C compiler identification is GNU 6.3.0
+-- The C compiler identification is GNU 7.5.0
 -- Check for working C compiler: /usr/bin/cc
 -- Check for working C compiler: /usr/bin/cc -- works
 -- Detecting C compiler ABI info
@@ -42,7 +42,6 @@ $ cmake -D CMAKE_BUILD_TYPE=Release ..
 -- Generating done
 -- Build files have been written to: /src/vs-ftp/build
 $ make
-Scanning dependencies of target vs-ftp
 [ 16%] Building C object CMakeFiles/vs-ftp.dir/src/linux/main.c.o
 [ 33%] Building C object CMakeFiles/vs-ftp.dir/src/linux/io.c.o
 [ 50%] Building C object CMakeFiles/vs-ftp.dir/src/common/vsftp_server.c.o
@@ -74,17 +73,17 @@ Found 6 entries.
 Found common filename prefix "/src/vs-ftp/src"
 Writing .css and .png files.
 Generating output.
-Processing file common/vsftp_commands.c
 Processing file common/vsftp_server.c
+Processing file common/vsftp_commands.c
 Processing file common/vsftp_filesystem.c
-Processing file linux/io.c
 Processing file linux/main.c
+Processing file linux/io.c
 Processing file linux/version.h
 Writing directory view page.
 Overall coverage rate:
-  lines......: 91.4% (679 of 743 lines)
-  functions..: 100.0% (54 of 54 functions)
-  branches...: 62.8% (305 of 486 branches)
+  lines......: 92.3% (721 of 781 lines)
+  functions..: 100.0% (55 of 55 functions)
+  branches...: 63.9% (344 of 538 branches)
 Script completed.
 ```
 The default browser will automatically display the results.
@@ -95,9 +94,9 @@ The default browser will automatically display the results.
 
 ```bash
 $ ./vs-ftp 127.0.0.1 2021 /tmp
-2020-07-16_20:15:23 vsftp_server.c[252]: Initializing server
-2020-07-16_20:15:23 vsftp_server.c[278]: Starting server
-2020-07-16_20:15:23 vsftp_server.c[123]: Socket 4 on port 2021 ready for connection...
+2020-07-22_18:47:37 vsftp_server.c[307]: Initializing server
+2020-07-22_18:47:37 vsftp_server.c[339]: Starting server
+2020-07-22_18:47:37 vsftp_server.c[124]: Socket 4 on port 2021 ready for connection...
 ```
 
 A few notes on the programs arguments:
