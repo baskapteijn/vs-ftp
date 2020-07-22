@@ -25,6 +25,7 @@ exit_on_error()
     mkdir build
     cd build
     cmake -D CMAKE_BUILD_TYPE=Debug ..
+    make clean
     make
 } &> /dev/null
 rc=$?; if [[ $rc != 0 ]]; then exit_on_error $rc; fi
@@ -44,18 +45,38 @@ rc=$?; if [[ $rc != 0 ]]; then exit_on_error $rc; fi
     # Perform an `NLIST ..` command (which should fail because it's above the root path)
     lftp -p2021 127.0.0.1 -e "nlist ..;bye"
 
-    # Perform a `CWD ..` command (which should fail because it's above the root path)
-    lftp -p2021 127.0.0.1 -e "cd ..;bye"
+    # Perform an `NLIST somedir` command (which should fail because it's a non-existing dir)
+    lftp -p2021 127.0.0.1 -e "nlist somedir;bye"
+
+    # Perform an `CWD somedir` command (which should fail because it's a non-existing dir)
+    lftp -p2021 127.0.0.1 -e "cd somedir;bye"
+
+    # Perform an `CWD .` command
+    mkdir /tmp/anotherdir
+    lftp -p2021 127.0.0.1 -e "cd anotherdir;bye"
 
     # Perform a `CWD ..` command (which should fail because it's above the root path)
-    lftp -u anon,@ -p2021 127.0.0.1 -e "nlist;bye"
+pftp 127.0.0.1 2021 <<HERE
+anonymous
+cd ..
+quit
+HERE
+
+    # Perform a login with anon (too short, which should fail because it should be anonymous)
+    lftp -u anon,@ -p2021 127.0.0.1 -e "nlist .;bye"
+
+    # Perform a login with anonymousu (too long, which should fail because it should be anonymous)
+    lftp -u anonymousu,@ -p2021 127.0.0.1 -e "nlist .;bye"
+
+    # Perform a login with anonymouu (equal length but wrong chars, which should fail because it should be anonymous)
+    lftp -u anonymouu,@ -p2021 127.0.0.1 -e "nlist .;bye"
 
     # Create a binary file and retrieve it (binary mode)
     dd if=/dev/urandom of=/tmp/file.bin bs=1024 count=1024
-    wget ftp://127.0.0.1:2021//tmp/file.bin
+    wget ftp://127.0.0.1:2021//file.bin
 
     # Try to retrieve a non-existing file
-    wget ftp://127.0.0.1:2021//tmp/not_existing_file.bin
+    wget ftp://127.0.0.1:2021//not_existing_file.bin
 
     # Try to retrieve a directory
     lftp -p2021 127.0.0.1 -e "get .;bye"
@@ -85,8 +106,21 @@ HERE
     # Start the server with an invalid (might be relative) path (not supported)
     ./vs-ftp 127.0.0.1 2021 tmp
 
-    # Start the server with an invalid (random ascii) port (not supported)
+    # Start the server with an invalid (non numeric) port (not supported)
     ./vs-ftp 127.0.0.1 abcd /tmp
+
+    # Start the server with another non numeric port (not supported)
+    ./vs-ftp 127.0.0.1 / /tmp
+
+    # Start the server with a max port - 1
+    ./vs-ftp 127.0.0.1 65364 /tmp &
+    killall vs-ftp
+
+    # Start the server with a max port + 1 (not supported)
+    ./vs-ftp 127.0.0.1 65366 /tmp
+
+    # Start the server with a max length +1 port (not supported)
+    ./vs-ftp 127.0.0.1 653656 /tmp
 
     # Start the server with an invalid number of arguments
     ./vs-ftp 127.0.0.1 abcd

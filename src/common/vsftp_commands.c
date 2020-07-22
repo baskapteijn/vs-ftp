@@ -168,6 +168,8 @@ static int CommandHandlerNlst(const char *args, size_t len)
     size_t realPathLen = 0;
     char cwd[PATH_LEN_MAX];
     size_t cwdLen = 0;
+    char serverPath[PATH_LEN_MAX];
+    size_t serverPathLen = 0;
     void *d = NULL;
     const char *lpath = 0;
     size_t llen = 0;
@@ -187,7 +189,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
 
         if (len != 0) {
             /* Get requested dir. */
-            retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+            retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
 
             if (retval == 0) {
                 retval = VSFTPFilesystemIsDir(realPath, realPathLen);
@@ -221,7 +223,18 @@ static int CommandHandlerNlst(const char *args, size_t len)
                 break;
             }
 
-            retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+            /* Remove the root path from the CWD. */
+            if (len != 0) {
+                retval = VSFTPServerRealPathToServerPath(buf, sizeof(buf), serverPath, sizeof(serverPath),
+                                                         &serverPathLen);
+                if (retval == 0) {
+                    retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, serverPath, sizeof(serverPath),
+                                                               serverPathLen);
+                }
+            } else {
+                retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+            }
+
             if (retval != 0) {
                 break;
             }
@@ -243,7 +256,9 @@ static int CommandHandlerNlst(const char *args, size_t len)
 static int CommandHandlerPwd(const char *args, size_t len)
 {
     char cwd[PATH_LEN_MAX];
+    char serverPath[PATH_LEN_MAX];
     size_t cwdLen = 0;
+    size_t serverPathLen = 0;
     int retval = -1;
 
     /* args and len not used. */
@@ -251,8 +266,14 @@ static int CommandHandlerPwd(const char *args, size_t len)
     (void)len;
 
     retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+
+    /* Remove the root path from the CWD. */
     if (retval == 0) {
-        retval = VSFTPServerSendReply("257 \"%s\"", cwd);
+        retval = VSFTPServerRealPathToServerPath(cwd, cwdLen, serverPath, sizeof(serverPath), &serverPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSendReply("257 \"%s\"", serverPath);
     } else {
         retval = VSFTPServerSendReply("550 Failed to get directory.");
     }
@@ -263,11 +284,17 @@ static int CommandHandlerPwd(const char *args, size_t len)
 static int CommandHandlerCwd(const char *args, size_t len)
 {
     int retval = -1;
+    char realPath[PATH_LEN_MAX];
+    size_t realPathLen = 0;
 
     /* (args != NULL) when len > 0 is guaranteed by caller, len may be 0. */
 
     if (len > 0) {
-        retval = VSFTPServerSetCwd(args, len);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
+    }
+
+    if (retval == 0) {
+        retval = VSFTPServerSetCwd(realPath, realPathLen);
     }
 
     if (retval == 0) {
@@ -286,8 +313,6 @@ static int CommandHandlerRetr(const char *args, size_t len)
     int pasv_server_sock = -1;
     char realPath[PATH_LEN_MAX];
     size_t realPathLen = 0;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
     bool isBinary = false;
     const char *fileNotFound = "551 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
@@ -301,11 +326,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
         if (retval != 0) {
             isFileError = true;
         }
@@ -355,8 +376,6 @@ static int CommandHandlerSize(const char *args, size_t len)
     int retval = -1;
     char realPath[PATH_LEN_MAX];
     size_t realPathLen = 0;
-    char cwd[PATH_LEN_MAX];
-    size_t cwdLen = 0;
     struct stat filestats;
     const char *fileNotFound = "550 File not found.";
     const char *localError = "451 Requested action aborted: Local error in processing.";
@@ -369,11 +388,10 @@ static int CommandHandlerSize(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
-    }
-
-    if (retval == 0) {
-        retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, args, len, realPath, sizeof(realPath), &realPathLen);
+        retval = VSFTPServerServerPathToRealPath(args, len, realPath, sizeof(realPath), &realPathLen);
+        if (retval != 0) {
+            isFileError = true;
+        }
     }
 
     if (retval == 0) {

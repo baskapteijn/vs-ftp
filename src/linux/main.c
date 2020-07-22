@@ -23,11 +23,11 @@
 #include "version.h"
 #include "vsftp_filesystem.h"
 
-#define DECIMAL_STRING_LEN_MAX          10U
+#define DECIMAL_STRING_LEN_MAX          5U
 
 volatile sig_atomic_t quit = 0;
 
-/* UINT32_MAX equivalent string. */
+/* UINT16_MAX equivalent string. */
 const char *DecimalStringValueMax = "65365";
 
 static void Terminate(int signum);
@@ -94,6 +94,8 @@ static bool IsDecimalChar(char c)
 
 /*!
  * \brief Indicate if a string represents a valid Decimal value.
+ * \details
+ *      Limited to UINT16_MAX in size.
  * \param string
  *      The string to verify.
  * \param len
@@ -120,7 +122,7 @@ static bool IsDecimal(const char *string, size_t len)
         } else if (len == DECIMAL_STRING_LEN_MAX) {
             for (i = 0; i < DECIMAL_STRING_LEN_MAX; i++) {
                 if ((string[i] - 0x30) > (DecimalStringValueMax[i] - 0x30)) {
-                    /* This isn't gonna fit in UINT32_MAX. */
+                    /* This isn't gonna fit in UINT16_MAX. */
                     isDecimal = false;
                     break;
                 } else if ((string[i] - 0x30) == (DecimalStringValueMax[i] - 0x30)) {

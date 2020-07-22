@@ -662,6 +662,67 @@ int VSFTPServerAbsPathIsNotAboveRootPath(const char *absPath, const size_t absPa
     return retval;
 }
 
+int VSFTPServerServerPathToRealPath(const char *serverPath, const size_t serverPathLen, char *realPath,
+                                    const size_t size, size_t *realPathLen)
+{
+    char cwd[PATH_LEN_MAX];
+    size_t cwdLen = 0;
+    char buf[PATH_LEN_MAX];
+    size_t bufLen = 0;
+    int retval = -1;
+
+    if ((serverPath != NULL) && (serverPathLen > 0) && (realPath != NULL) && (size > 0) && (realPathLen != NULL)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        if (VSFTPFilesystemIsAbsPath(serverPath) == 0) {
+            /* This seems to be an absolute path, prepend it with the root path. */
+            (void)strncpy(buf, serverData.rootPath, sizeof(buf));
+            (void)strncpy(&buf[serverData.rootPathLen], serverPath, sizeof(buf) - serverData.rootPathLen);
+            bufLen = strnlen(buf, sizeof(buf));
+            retval = VSFTPFilesystemGetRealPath(NULL, 0, buf, bufLen, realPath, size, realPathLen);
+        } else {
+            retval = VSFTPServerGetCwd(cwd, sizeof(cwd), &cwdLen);
+
+            if (retval == 0) {
+                retval = VSFTPFilesystemGetRealPath(cwd, cwdLen, serverPath, serverPathLen, realPath, size,
+                                                    realPathLen);
+            }
+        }
+    }
+
+    return retval;
+}
+
+int VSFTPServerRealPathToServerPath(const char *realPath, const size_t realPathLen, char *serverPath,
+                                    const size_t size, size_t *serverPathLen)
+{
+    int retval = -1;
+
+    if ((realPath != NULL) && (realPathLen > 0) && (serverPath != NULL) && (size > 0) && (serverPathLen != NULL)) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        serverPath[0] = '/';
+        serverPath[1] = '\0';
+        *serverPathLen = 1;
+
+        for (int i = 0; i < (int)realPathLen; i++) {
+            if (realPath[i] == serverData.rootPath[i]) {
+                continue;
+            } else {
+                (void)strncpy(serverPath, &realPath[i], size);
+                *serverPathLen = strlen(serverPath);
+                break;
+            }
+        }
+    }
+
+    return retval;
+}
+
 int VSFTPServerSetCwd(const char *dir, const size_t len)
 {
     int retval = -1;
