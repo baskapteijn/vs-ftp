@@ -629,7 +629,7 @@ int VSFTPServerGetServerIP4(char *buf, const size_t size, size_t *len)
 
     if (retval == 0) {
         (void)strncpy(buf, serverData.ipAddr, size);
-        *len = strlen(buf);
+        *len = strnlen(buf, size);
     }
 
     return retval;
@@ -714,7 +714,7 @@ int VSFTPServerRealPathToServerPath(const char *realPath, const size_t realPathL
                 continue;
             } else {
                 (void)strncpy(serverPath, &realPath[i], size);
-                *serverPathLen = strlen(serverPath);
+                *serverPathLen = strnlen(serverPath, size);
                 break;
             }
         }
