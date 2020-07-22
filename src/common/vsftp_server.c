@@ -58,8 +58,8 @@ static vsftpServerData_s serverData;
 static int CreatePassiveSocket(uint16_t portNum, int *sock, const struct sockaddr_in *sockData);
 static int WaitForIncomingConnection(void);
 static int HandleConnection(void);
-static int SendBinaryOwnSock(int sock, const char *buf, size_t size, size_t *send);
-static int Receive(int sock, char *buf, size_t size, size_t *received);
+static int SendOwnSock(int sock, const char *buf, size_t size, size_t *send);
+static int ReceiveOwnSock(int sock, char *buf, size_t size, size_t *received);
 
 /*!
  * \brief Create a passive socket.
@@ -187,7 +187,7 @@ static int HandleConnection(void)
 
     /* Argument checks are performed by the caller. */
 
-    retval = Receive(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
+    retval = ReceiveOwnSock(serverData.clientSock, buffer, sizeof(buffer), &bytes_read);
 
     /* Terminate the buffer. */
     buffer[bytes_read] = '\0';
@@ -226,7 +226,19 @@ static int HandleConnection(void)
     return retval;
 }
 
-static int SendBinaryOwnSock(const int sock, const char *buf, const size_t size, size_t *send)
+/*!
+ * \brief Send data on a given socket.
+ * \param sock
+ *      The socket to send the file to.
+ * \param buf
+ *      A pointer to the storage location containing data.
+ * \param size
+ *      The size of 'buf'.
+ * \param[out] send
+ *      A pointer to the storage location for the total send data.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+static int SendOwnSock(const int sock, const char *buf, const size_t size, size_t *send)
 {
     ssize_t lsend = 0;
     int retval = -1;
@@ -234,7 +246,7 @@ static int SendBinaryOwnSock(const int sock, const char *buf, const size_t size,
     /* Argument checks are performed by the caller. */
 
     lsend = write(sock, buf, size);
-    if (lsend > -1) {
+    if (lsend != -1) {
         *send = (size_t)lsend;
         retval = 0;
     }
@@ -242,10 +254,24 @@ static int SendBinaryOwnSock(const int sock, const char *buf, const size_t size,
     return retval;
 }
 
-static int Receive(const int sock, char *buf, const size_t size, size_t *received)
+/*!
+ * \brief Receive data on a given socket.
+ * \param sock
+ *      The socket to send the file to.
+ * \param buf
+ *      A pointer to the storage location for data.
+ * \param size
+ *      The size of 'buf'.
+ * \param[out] received
+ *      A pointer to the storage location for the total received data.
+ * \return 
+ */
+static int ReceiveOwnSock(const int sock, char *buf, const size_t size, size_t *received)
 {
     ssize_t bytesRead = 0;
     int retval = -1;
+
+    /* Argument checks are performed by the caller. */
 
     bytesRead = read(sock, buf, size);
     if (bytesRead != -1) {
@@ -442,6 +468,14 @@ int VSFTPServerClientDisconnect(void)
     return 0;
 }
 
+/*!
+ * \brief Create the transfer socket.
+ * \param portNum
+ *      The port number to create the transfer socket on.
+ * \param[out] sock
+ *      Pointer to the storage location of the socket.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
 {
     int retval = -1;
@@ -466,6 +500,12 @@ int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
     return retval;
 }
 
+/*!
+ * \brief Close the transfer socket.
+ * \param sock
+ *      The socket to close.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPServerCloseTransferSocket(const int sock)
 {
     int retval = -1;
@@ -488,6 +528,12 @@ int VSFTPServerCloseTransferSocket(const int sock)
     return retval;
 }
 
+/*!
+ * \brief Get the transfer socket.
+ * \param sock
+ *      A pointer to the storage location for the socket.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
 int VSFTPServerGetTransferSocket(int *sock)
 {
     int retval = -1;
@@ -549,11 +595,11 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
                 break;                      /* EOF */
             }
 
-            retval = SendBinaryOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
+            retval = SendOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
             if (retval == -1) {
                 break;
             }
-            if (numSent == 0) {               /* Should never happen */
+            if (numSent == 0) {
                 retval = -1;
                 break;
             }
