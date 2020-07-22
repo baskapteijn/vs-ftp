@@ -18,6 +18,7 @@
 #define VSFTP_SERVER_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 extern int VSFTPServerInitialize(const char *rootPath, size_t rootPathLen, const char *ipAddr, size_t ipAddrLen,
                                  uint16_t port);
