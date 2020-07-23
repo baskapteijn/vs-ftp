@@ -192,18 +192,19 @@ static int HandleConnection(void)
     /* Terminate the buffer. */
     buffer[bytes_read] = '\0';
     if ((retval == 0) && (bytes_read > 2) && (strncmp(&buffer[bytes_read - 2], "\r\n", 2) == 0)) {
-        FTPLOG("Received command from client: %s\n", buffer);
-
         /* Handle the command, we currently ignore errors. */
         buffer[bytes_read - 2] = '\0';
         bytes_read -= 2;
+
+        FTPLOG("Received command from client: %s\n", buffer);
+
         retval = VSFTPCommandsParse(buffer, bytes_read);
         if (retval != 0) {
             FTPLOG("Command failed with error %d\n", retval);
             /* In case we get a list command (which creates a transfer socket, but is then rejected),
              * or for any other reason, make sure to close a created but not used transfer socket.
              */
-            (void)VSFTPServerCloseTransferSocket(serverData.transferSock);
+            (void)VSFTPServerCloseTransferSocket();
             /* We do not break on a command parse failure, the printout is enough. */
             retval = 0;
         } else {
@@ -376,12 +377,7 @@ int VSFTPServerStop(void)
     FTPLOG("Stopping server\n");
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
-    if (serverData.transferSock != -1) {
-        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
-        (void)shutdown(serverData.transferSock, SHUT_RDWR);
-        (void)close(serverData.transferSock);
-        serverData.transferSock = -1;
-    }
+    (void)VSFTPServerCloseTransferSocket();
 
     if (serverData.clientSock != -1) {
         FTPLOG("Closing client socket %d\n", serverData.clientSock);
@@ -449,12 +445,7 @@ int VSFTPServerClientDisconnect(void)
     FTPLOG("Disconnecting client\n");
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
-    if (serverData.transferSock != -1) {
-        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
-        (void)shutdown(serverData.transferSock, SHUT_RDWR);
-        (void)close(serverData.transferSock);
-        serverData.transferSock = -1;
-    }
+    (void)VSFTPServerCloseTransferSocket();
 
     if (serverData.clientSock != -1) {
         FTPLOG("Closing client socket %d\n", serverData.clientSock);
@@ -472,15 +463,13 @@ int VSFTPServerClientDisconnect(void)
  * \brief Create the transfer socket.
  * \param portNum
  *      The port number to create the transfer socket on.
- * \param[out] sock
- *      Pointer to the storage location of the socket.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
-int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
+int VSFTPServerCreateTransferSocket(const uint16_t portNum)
 {
     int retval = -1;
 
-    if ((sock != NULL) && (serverData.transferSock == -1)) {
+    if (serverData.transferSock == -1) {
         retval = 0;
     } /* Else already created. */
 
@@ -493,29 +482,23 @@ int VSFTPServerCreateTransferSocket(const uint16_t portNum, int *sock)
         retval = CreatePassiveSocket(portNum, &serverData.transferSock, &serverData.transfer);
     }
 
-    if (retval == 0) {
-        *sock = serverData.transferSock;
-    }
-
     return retval;
 }
 
 /*!
  * \brief Close the transfer socket.
- * \param sock
- *      The socket to close.
  * \returns 0 in case of successful completion or any other value in case of an error.
  */
-int VSFTPServerCloseTransferSocket(const int sock)
+int VSFTPServerCloseTransferSocket(void)
 {
     int retval = -1;
 
-    if (sock == serverData.transferSock) {
+    if (serverData.transferSock != -1) {
         retval = 0;
     }
 
     if (retval == 0) {
-        FTPLOG("Closing transfer socket %d\n", sock);
+        FTPLOG("Closing transfer socket %d\n", serverData.transferSock);
         retval = shutdown(serverData.transferSock, SHUT_RDWR);
     }
 
@@ -528,39 +511,20 @@ int VSFTPServerCloseTransferSocket(const int sock)
     return retval;
 }
 
-/*!
- * \brief Get the transfer socket.
- * \param sock
- *      A pointer to the storage location for the socket.
- * \returns 0 in case of successful completion or any other value in case of an error.
- */
-int VSFTPServerGetTransferSocket(int *sock)
-{
-    int retval = -1;
-
-    /* Check if the socket is valid. */
-    if (serverData.transferSock >= 0) {
-        *sock = serverData.transferSock;
-        retval = 0;
-    }
-
-    return retval;
-}
-
-int VSFTPServerAcceptTransferConnection(const int sock, int *con_sock)
+int VSFTPServerAcceptTransferConnection(int *con_sock)
 {
     socklen_t addrlen = 0;
     struct sockaddr_in client_address;
     int lsock = -1;
     int retval = -1;
 
-    if (con_sock != NULL) {
+    if ((serverData.transferSock != -1) && (con_sock != NULL)) {
         retval = 0;
     }
 
     if (retval == 0) {
         addrlen = sizeof(client_address);
-        lsock = accept(sock, (struct sockaddr *)&client_address, &addrlen);
+        lsock = accept(serverData.transferSock, (struct sockaddr *)&client_address, &addrlen);
         if (lsock >= 0) {
             *con_sock = lsock;
             retval = 0;
