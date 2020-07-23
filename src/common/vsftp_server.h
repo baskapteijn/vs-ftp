@@ -27,10 +27,9 @@ extern int VSFTPServerStop(void);
 extern int VSFTPServerHandler(void);
 
 extern int VSFTPServerClientDisconnect(void);
-extern int VSFTPServerCreateTransferSocket(uint16_t port_num, int *sock);
-extern int VSFTPServerCloseTransferSocket(int sock);
-extern int VSFTPServerGetTransferSocket(int *sock);
-extern int VSFTPServerAcceptTransferConnection(int sock, int *con_sock);
+extern int VSFTPServerCreateTransferSocket(uint16_t port_num);
+extern int VSFTPServerCloseTransferSocket(void);
+extern int VSFTPServerAcceptTransferConnection(int *con_sock);
 
 extern int VSFTPServerSendfile(int sock, const char *pathTofile, size_t len);
 extern int VSFTPServerSetTransferMode(bool binary);
