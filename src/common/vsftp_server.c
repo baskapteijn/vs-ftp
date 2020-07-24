@@ -60,6 +60,7 @@ static int WaitForIncomingConnection(void);
 static int HandleConnection(void);
 static int SendOwnSock(int sock, const char *buf, size_t size, size_t *send);
 static int ReceiveOwnSock(int sock, char *buf, size_t size, size_t *received);
+static int CloseClientSocket(void);
 
 /*!
  * \brief Create a passive socket.
@@ -284,6 +285,32 @@ static int ReceiveOwnSock(const int sock, char *buf, const size_t size, size_t *
 }
 
 /*!
+ * \brief Close the client socket.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+static int CloseClientSocket(void)
+{
+    int retval = -1;
+
+    if (serverData.clientSock != -1) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        FTPLOG("Closing transfer socket %d\n", serverData.clientSock);
+        retval = shutdown(serverData.clientSock, SHUT_RDWR);
+    }
+
+    if (retval == 0) {
+        retval = close(serverData.clientSock);
+    }
+
+    serverData.clientSock = -1;
+
+    return retval;
+}
+
+/*!
  * \brief Initialize the VS-FTP server.
  * \details
  *      Initializes the Server with configuration data received from the caller.
@@ -378,13 +405,7 @@ int VSFTPServerStop(void)
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
     (void)VSFTPServerCloseTransferSocket();
-
-    if (serverData.clientSock != -1) {
-        FTPLOG("Closing client socket %d\n", serverData.clientSock);
-        (void)shutdown(serverData.clientSock, SHUT_RDWR);
-        (void)close(serverData.clientSock);
-        serverData.clientSock = -1;
-    }
+    (void)CloseClientSocket();
 
     if (serverData.serverSock != -1) {
         FTPLOG("Closing server socket %d\n", serverData.serverSock);
@@ -446,13 +467,7 @@ int VSFTPServerClientDisconnect(void)
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
     (void)VSFTPServerCloseTransferSocket();
-
-    if (serverData.clientSock != -1) {
-        FTPLOG("Closing client socket %d\n", serverData.clientSock);
-        (void)shutdown(serverData.clientSock, SHUT_RDWR);
-        (void)close(serverData.clientSock);
-        serverData.clientSock = -1;
-    }
+    (void)CloseClientSocket();
 
     serverData.isConnected = false;
 

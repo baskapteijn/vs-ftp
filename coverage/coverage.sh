@@ -45,6 +45,9 @@ rc=$?; if [[ $rc != 0 ]]; then exit_on_error $rc; fi
     # Perform an `NLIST ..` command (which should fail because it's above the root path)
     lftp -p2021 127.0.0.1 -e "nlist ..;bye"
 
+    # Perform an `NLIST /` command with absolute path
+    lftp -p2021 127.0.0.1 -e "nlist /;bye"
+
     # Perform an `NLIST somedir` command (which should fail because it's a non-existing dir)
     lftp -p2021 127.0.0.1 -e "nlist somedir;bye"
 
