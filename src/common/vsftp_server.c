@@ -535,6 +535,7 @@ int VSFTPServerAcceptTransferClientConnection(void)
     socklen_t addrlen = 0;
     struct sockaddr_in client_address;
     int lsock = -1;
+    struct timeval tv;
     int retval = -1;
 
     if (serverData.transferSock != -1) {
@@ -545,8 +546,16 @@ int VSFTPServerAcceptTransferClientConnection(void)
         addrlen = sizeof(client_address);
         lsock = accept(serverData.transferSock, (struct sockaddr *)&client_address, &addrlen);
         if (lsock >= 0) {
+            /* Set a 60 seconds timeout for data transmission. */
+            tv.tv_sec = 60;
+            retval = setsockopt(serverData.transferClientSock, SOL_SOCKET, SO_SNDTIMEO, (struct timeval *)&tv,
+                                sizeof(struct timeval));
+        } else {
+            retval = -1;
+        }
+
+        if (retval == 0) {
             serverData.transferClientSock = lsock;
-            retval = 0;
         }
     }
 
