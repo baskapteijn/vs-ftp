@@ -548,14 +548,24 @@ int VSFTPServerAcceptTransferClientConnection(void)
         if (lsock >= 0) {
             /* Set a 60 seconds timeout for data transmission. */
             tv.tv_sec = 60;
-            retval = setsockopt(serverData.transferClientSock, SOL_SOCKET, SO_SNDTIMEO, (struct timeval *)&tv,
+            retval = setsockopt(lsock, SOL_SOCKET, SO_SNDTIMEO, (struct timeval *)&tv,
                                 sizeof(struct timeval));
+
+            //tmp
+            if (retval != 0) {
+                printf("errno %d\n", errno);
+            }
+            //tmp
         } else {
             retval = -1;
         }
 
         if (retval == 0) {
             serverData.transferClientSock = lsock;
+        } else if (lsock >= 0) {
+            /* Something went wrong, close it again. */
+            (void)shutdown(lsock, SHUT_RDWR);
+            (void)(lsock);
         }
     }
 
