@@ -546,7 +546,8 @@ int VSFTPServerAcceptTransferClientConnection(void)
         lsock = accept(serverData.transferSock, (struct sockaddr *)&client_address, &addrlen);
         if (lsock >= 0) {
             serverData.transferClientSock = lsock;
-            retval = 0;
+        } else {
+            retval = -1;
         }
     }
 
