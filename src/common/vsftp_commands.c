@@ -18,7 +18,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include <errno.h>
@@ -118,6 +117,7 @@ static int CommandHandlerPasv(const char *args, size_t len)
     (void)len;
 
     /* Close a socket if it is still open (could be happening with unsupported reception of list command). */
+    (void)VSFTPServerCloseTransferClientSocket();
     (void)VSFTPServerCloseTransferSocket();
 
     /* Create a new transfer socket connection. */
@@ -152,7 +152,6 @@ static int CommandHandlerPasv(const char *args, size_t len)
 static int CommandHandlerNlst(const char *args, size_t len)
 {
     int retval = -1;
-    int pasv_client_sock = -1;
     char buf[PATH_LEN_MAX];
     size_t bufLen = 0;
     char realPath[PATH_LEN_MAX];
@@ -195,7 +194,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerAcceptTransferConnection(&pasv_client_sock);
+        retval = VSFTPServerAcceptTransferClientConnection();
     }
 
     if (retval == 0) {
@@ -215,11 +214,10 @@ static int CommandHandlerNlst(const char *args, size_t len)
                 retval = VSFTPServerRealPathToServerPath(buf, sizeof(buf), serverPath, sizeof(serverPath),
                                                          &serverPathLen);
                 if (retval == 0) {
-                    retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, serverPath, sizeof(serverPath),
-                                                               serverPathLen);
+                    retval = VSFTPServerSendReplyOwnBufTransfer(serverPath, sizeof(serverPath), serverPathLen);
                 }
             } else {
-                retval = VSFTPServerSendReplyOwnBufOwnSock(pasv_client_sock, buf, sizeof(buf), bufLen);
+                retval = VSFTPServerSendReplyOwnBufTransfer(buf, sizeof(buf), bufLen);
             }
 
             if (retval != 0) {
@@ -228,7 +226,7 @@ static int CommandHandlerNlst(const char *args, size_t len)
         } while(d != NULL);
     }
 
-    (void)close(pasv_client_sock);
+    (void)VSFTPServerCloseTransferClientSocket();
     (void)VSFTPServerCloseTransferSocket();
 
     if (retval == 0) {
@@ -296,7 +294,6 @@ static int CommandHandlerCwd(const char *args, size_t len)
 static int CommandHandlerRetr(const char *args, size_t len)
 {
     int retval = -1;
-    int pasv_client_sock = -1;
     char realPath[PATH_LEN_MAX];
     size_t realPathLen = 0;
     bool isBinary = false;
@@ -321,7 +318,7 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerAcceptTransferConnection(&pasv_client_sock);
+        retval = VSFTPServerAcceptTransferClientConnection();
     }
 
     if (retval == 0) {
@@ -337,10 +334,10 @@ static int CommandHandlerRetr(const char *args, size_t len)
     }
 
     if (retval == 0) {
-        retval = VSFTPServerSendfile(pasv_client_sock, realPath, realPathLen);
+        retval = VSFTPServerSendfileTransfer(realPath, realPathLen);
     }
 
-    (void)close(pasv_client_sock);
+    (void)VSFTPServerCloseTransferClientSocket();
     (void)VSFTPServerCloseTransferSocket();
 
     if (retval == 0) {

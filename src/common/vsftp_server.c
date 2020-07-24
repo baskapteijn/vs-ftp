@@ -44,6 +44,7 @@ typedef struct {
     int serverSock;
     int clientSock;
     int transferSock;
+    int transferClientSock;
     struct sockaddr_in server;
     struct sockaddr_in client;
     struct sockaddr_in transfer;
@@ -205,6 +206,7 @@ static int HandleConnection(void)
             /* In case we get a list command (which creates a transfer socket, but is then rejected),
              * or for any other reason, make sure to close a created but not used transfer socket.
              */
+            (void)VSFTPServerCloseTransferClientSocket();
             (void)VSFTPServerCloseTransferSocket();
             /* We do not break on a command parse failure, the printout is enough. */
             retval = 0;
@@ -404,6 +406,7 @@ int VSFTPServerStop(void)
     FTPLOG("Stopping server\n");
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
+    (void)VSFTPServerCloseTransferClientSocket();
     (void)VSFTPServerCloseTransferSocket();
     (void)CloseClientSocket();
 
@@ -466,6 +469,7 @@ int VSFTPServerClientDisconnect(void)
     FTPLOG("Disconnecting client\n");
 
     /* We don't know in what state we currently are, just orderly shutdown and close everything. */
+    (void)VSFTPServerCloseTransferClientSocket();
     (void)VSFTPServerCloseTransferSocket();
     (void)CloseClientSocket();
 
@@ -526,14 +530,14 @@ int VSFTPServerCloseTransferSocket(void)
     return retval;
 }
 
-int VSFTPServerAcceptTransferConnection(int *con_sock)
+int VSFTPServerAcceptTransferClientConnection(void)
 {
     socklen_t addrlen = 0;
     struct sockaddr_in client_address;
     int lsock = -1;
     int retval = -1;
 
-    if ((serverData.transferSock != -1) && (con_sock != NULL)) {
+    if (serverData.transferSock != -1) {
         retval = 0;
     }
 
@@ -541,7 +545,7 @@ int VSFTPServerAcceptTransferConnection(int *con_sock)
         addrlen = sizeof(client_address);
         lsock = accept(serverData.transferSock, (struct sockaddr *)&client_address, &addrlen);
         if (lsock >= 0) {
-            *con_sock = lsock;
+            serverData.transferClientSock = lsock;
             retval = 0;
         }
     }
@@ -549,7 +553,34 @@ int VSFTPServerAcceptTransferConnection(int *con_sock)
     return retval;
 }
 
-int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len)
+
+/*!
+ * \brief Close the transfer client socket.
+ * \returns 0 in case of successful completion or any other value in case of an error.
+ */
+int VSFTPServerCloseTransferClientSocket(void)
+{
+    int retval = -1;
+
+    if (serverData.transferClientSock != -1) {
+        retval = 0;
+    }
+
+    if (retval == 0) {
+        FTPLOG("Closing transfer client socket %d\n", serverData.transferClientSock);
+        retval = shutdown(serverData.transferClientSock, SHUT_RDWR);
+    }
+
+    if (retval == 0) {
+        retval = close(serverData.transferClientSock);
+    }
+
+    serverData.transferClientSock = -1;
+
+    return retval;
+}
+
+int VSFTPServerSendfileTransfer(const char *pathTofile, const size_t len)
 {
     char fileBuf[FILE_READ_BUF_SIZE];
     size_t toRead = 0;
@@ -574,7 +605,7 @@ int VSFTPServerSendfile(const int sock, const char *pathTofile, const size_t len
                 break;                      /* EOF */
             }
 
-            retval = SendOwnSock(sock, fileBuf, (size_t)numRead, &numSent);
+            retval = SendOwnSock(serverData.transferClientSock, fileBuf, (size_t)numRead, &numSent);
             if (retval == -1) {
                 break;
             }
@@ -856,7 +887,7 @@ int VSFTPServerSendReplyOwnBuf(char *buf, const size_t size, const size_t len)
     return retval;
 }
 
-int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t size, const size_t len)
+int VSFTPServerSendReplyOwnBufTransfer(char *buf, const size_t size, const size_t len)
 {
     int written = 0;
     int retval = -1;
@@ -876,7 +907,7 @@ int VSFTPServerSendReplyOwnBufOwnSock(const int sock, char *buf, const size_t si
     }
 
     if (retval == 0) {
-        if (write(sock, buf, len + written) == -1) {
+        if (write(serverData.transferClientSock, buf, len + written) == -1) {
             retval = -1;
         }
     }
